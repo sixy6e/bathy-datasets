@@ -14,7 +14,7 @@ setup(
         "dggs",
     ],
     # packages=find_packages(),
-    packages=["bath_datasets"],
+    packages=["bathy_datasets"],
     install_requires=[
         "numpy",
         "attrs",
