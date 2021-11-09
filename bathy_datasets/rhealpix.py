@@ -154,7 +154,7 @@ def _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, width, ul_vertex, n, cel
 
         region_codes.append(s0 + "".join([str(val) for val in res_codes]))
 
-    return numpy.array(region_codes)
+    return region_codes
 
 
 @jit(nopython=True)
