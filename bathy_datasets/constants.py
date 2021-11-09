@@ -6,8 +6,7 @@ def _init_rhealpix():
     """Initialise an rHEALPIX projection using the WGS84 parameters."""
     crs = CRS.from_epsg(4326)
     ellips = ellipsoids.Ellipsoid(
-        a=crs.ellipsoid.semi_major_metre,
-        b=crs.ellipsoid.semi_minor_metre
+        a=crs.ellipsoid.semi_major_metre, b=crs.ellipsoid.semi_minor_metre
     )
     rhealpix = dggs.RHEALPixDGGS(ellips)
 

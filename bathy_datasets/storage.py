@@ -40,34 +40,95 @@ def mbes_domain(tri=False):
 def mbes_attrs():
     """Create the mbes attributes"""
     attrs = [
-        tiledb.Attr("depth", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("timestamp", dtype="datetime64[ns]", filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("across_track", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("along_track", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("travel_time", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("beam_angle", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("mean_cal_amplitude", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("beam_angle_forward", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("vertical_error", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("horizontal_error", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("sector_number", dtype=numpy.uint8, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("beam_flags", dtype=numpy.uint8, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("ping_flags", dtype=numpy.uint8, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("tide_corrector", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("depth_corrector", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("heading", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("pitch", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
+        tiledb.Attr(
+            "depth", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "timestamp", dtype="datetime64[ns]", filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "across_track", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "along_track", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "travel_time", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "beam_angle", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "mean_cal_amplitude",
+            dtype=numpy.float32,
+            filters=[tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "beam_angle_forward",
+            dtype=numpy.float32,
+            filters=[tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "vertical_error", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "horizontal_error",
+            dtype=numpy.float32,
+            filters=[tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "sector_number",
+            dtype=numpy.uint8,
+            filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "beam_flags",
+            dtype=numpy.uint8,
+            filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "ping_flags",
+            dtype=numpy.uint8,
+            filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "tide_corrector", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "depth_corrector",
+            dtype=numpy.float32,
+            filters=[tiledb.ZstdFilter(level=16)],
+        ),
+        tiledb.Attr(
+            "heading", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "pitch", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
         tiledb.Attr("roll", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("heave", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("course", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("speed", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("height", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("separation", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
-        tiledb.Attr("gps_tide_corrector", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
+        tiledb.Attr(
+            "heave", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "course", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "speed", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "height", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "separation", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "gps_tide_corrector",
+            dtype=numpy.float32,
+            filters=[tiledb.ZstdFilter(level=16)],
+        ),
     ]
 
     return attrs
-
 
 
 def mbes_schema():
@@ -75,7 +136,15 @@ def mbes_schema():
     domain = mbes_domain(False)  # only 2 dims for the project
     attributes = mbes_attrs()
 
-    schema = tiledb.ArraySchema(domain=domain, sparse=True, attrs=attributes, cell_order="hilbert", tile_order="row-major", capacity=1_000_000, allows_duplicates=True)
+    schema = tiledb.ArraySchema(
+        domain=domain,
+        sparse=True,
+        attrs=attributes,
+        cell_order="hilbert",
+        tile_order="row-major",
+        capacity=1_000_000,
+        allows_duplicates=True,
+    )
 
     return schema
 

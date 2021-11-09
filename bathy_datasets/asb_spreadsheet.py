@@ -9,12 +9,14 @@ _LOG = structlog.get_logger()
 
 class SurveyColumns(Enum):
     """Field and value labels for survey sheets"""
+
     FIELD = "Survey/Mission Attributes"
     VALUE = "User entered (some defaults pre-entered)"
 
 
 class BathyColumns(Enum):
     """Field and value labels for bathymetric sheets"""
+
     FIELD = "Bathy Metadata Attributes"
     VALUE = "User entered (some defaults pre-entered)"
 
@@ -87,7 +89,9 @@ def harvest(pathname: str) -> Dict[str, pandas.DataFrame]:
         cols = [column.value for column in enumerator]
         dataframe = read_sheet(pathname, sheet_name)
 
-        query = (dataframe.Requirement != EXCLUDE) & (dataframe[enumerator.VALUE.value].notnull())
+        query = (dataframe.Requirement != EXCLUDE) & (
+            dataframe[enumerator.VALUE.value].notnull()
+        )
         filtered = dataframe[query]
         subset = filtered[cols].reset_index(drop=True)
 

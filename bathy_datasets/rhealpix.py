@@ -86,19 +86,38 @@ def _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, width, ul_vertex, n, cel
         ):
             s0 = cells0[5]
             ul = ul_vertex[5]
-        elif y >= -r * numpy.pi / 4 and y <= r * numpy.pi / 4 and x >= -r * numpy.pi and x < -r * numpy.pi / 2:
+        elif (
+            y >= -r * numpy.pi / 4
+            and y <= r * numpy.pi / 4
+            and x >= -r * numpy.pi
+            and x < -r * numpy.pi / 2
+        ):
             s0 = cells0[1]
             ul = ul_vertex[1]
-        elif y >= -r * numpy.pi / 4 and y <= r * numpy.pi / 4 and x >= -r * numpy.pi / 2 and x < 0:
+        elif (
+            y >= -r * numpy.pi / 4
+            and y <= r * numpy.pi / 4
+            and x >= -r * numpy.pi / 2
+            and x < 0
+        ):
             s0 = cells0[2]
             ul = ul_vertex[2]
-        elif y >= -r * numpy.pi / 4 and y <= r * numpy.pi / 4 and x >= 0 and x < r * numpy.pi / 2:
+        elif (
+            y >= -r * numpy.pi / 4
+            and y <= r * numpy.pi / 4
+            and x >= 0
+            and x < r * numpy.pi / 2
+        ):
             s0 = cells0[3]
             ul = ul_vertex[3]
-        elif y >= -r * numpy.pi / 4 and y <= r * numpy.pi / 4 and x >= r * numpy.pi / 2 and x < r * numpy.pi:
+        elif (
+            y >= -r * numpy.pi / 4
+            and y <= r * numpy.pi / 4
+            and x >= r * numpy.pi / 2
+            and x < r * numpy.pi
+        ):
             s0 = cells0[4]
             ul = ul_vertex[4]
-
 
         dx = abs(x - ul[0]) / width
         dy = abs(y - ul[1]) / width
@@ -139,13 +158,23 @@ def _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, width, ul_vertex, n, cel
 
 
 @jit(nopython=True)
-def _rhealpix_geo_boundary(s0_codes, region_codes, s0_ul_vertices, ncodes, nsides, cell0_width, ellipsoid_radius):
+def _rhealpix_geo_boundary(
+    s0_codes,
+    region_codes,
+    s0_ul_vertices,
+    ncodes,
+    nsides,
+    cell0_width,
+    ellipsoid_radius,
+):
     """
     Does the heavy lifting of decoding each region code string identifier.
     """
-    boundary = numpy.zeros((2, 4, ncodes), dtype="float64")  # require contiguous blocks later
-    col_map = numpy.array([0,1,2,0,1,2,0,1,2], dtype="uint8")
-    row_map = numpy.array([0,0,0,1,1,1,2,2,2], dtype="uint8")
+    boundary = numpy.zeros(
+        (2, 4, ncodes), dtype="float64"
+    )  # require contiguous blocks later
+    col_map = numpy.array([0, 1, 2, 0, 1, 2, 0, 1, 2], dtype="uint8")
+    row_map = numpy.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype="uint8")
 
     # ['N', 'O', 'P', 'Q', 'R', 'S'] is the Cell0 order
     for i in range(ncodes):
@@ -173,9 +202,9 @@ def _rhealpix_geo_boundary(s0_codes, region_codes, s0_ul_vertices, ncodes, nside
 
         dx = 0.0
         dy = 0.0
-        for res in range(1, resolution+1):
-            dx += nsides ** (resolution - res) * suid_col[res-1]
-            dy += nsides ** (resolution - res) * suid_row[res-1]
+        for res in range(1, resolution + 1):
+            dx += nsides ** (resolution - res) * suid_col[res - 1]
+            dy += nsides ** (resolution - res) * suid_row[res - 1]
 
         dx = dx * float(nsides) ** (-resolution)
         dy = dy * float(nsides) ** (-resolution)
@@ -223,8 +252,7 @@ def rhealpix_geo_boundary(region_codes):
     transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
 
     ellips = ellipsoids.Ellipsoid(
-        a=to_crs.ellipsoid.semi_major_metre,
-        b=to_crs.ellipsoid.semi_minor_metre
+        a=to_crs.ellipsoid.semi_major_metre, b=to_crs.ellipsoid.semi_minor_metre
     )
     rhealpix = dggs.RHEALPixDGGS(ellips)
     nsides = rhealpix.N_side
@@ -233,7 +261,7 @@ def rhealpix_geo_boundary(region_codes):
 
     ncodes = region_codes.shape[0]
 
-    s0_codes = region_codes.view("<U1")[::len(region_codes[0])]
+    s0_codes = region_codes.view("<U1")[:: len(region_codes[0])]
 
     ul_vertices = numpy.zeros((6, 2), "float64")
     for i, cell in enumerate(rhealpix.cells0):
@@ -246,11 +274,13 @@ def rhealpix_geo_boundary(region_codes):
         ncodes,
         nsides,
         cell0_width,
-        ellipsoid_radius
+        ellipsoid_radius,
     )
 
     # this next part requires contiguous blocks for inplace calcs
-    _ = transformer.transform(boundary[0,:,:].ravel(), boundary[1,:,:].ravel(), inplace=True)
+    _ = transformer.transform(
+        boundary[0, :, :].ravel(), boundary[1, :, :].ravel(), inplace=True
+    )
     boundary = boundary.transpose(2, 1, 0)
 
     polygons = []
@@ -278,8 +308,7 @@ def rhealpix_code(longitude, latitude, resolution):
     transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
 
     ellips = ellipsoids.Ellipsoid(
-        a=from_crs.ellipsoid.semi_major_metre,
-        b=from_crs.ellipsoid.semi_minor_metre
+        a=from_crs.ellipsoid.semi_major_metre, b=from_crs.ellipsoid.semi_minor_metre
     )
     rhealpix = dggs.RHEALPixDGGS(ellips)
 
@@ -297,6 +326,8 @@ def rhealpix_code(longitude, latitude, resolution):
     cell0_width = rhealpix.cell_width(0)
     cells0 = numpy.array(rhealpix.cells0)
 
-    region_codes = _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, cell0_width, ul_vertices, nsides, cells0)
+    region_codes = _rhealpix_code(
+        prj_x, prj_y, resolution, ns, ss, r, cell0_width, ul_vertices, nsides, cells0
+    )
 
     return region_codes

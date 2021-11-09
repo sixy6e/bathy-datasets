@@ -9,7 +9,9 @@ from bathy_datasets import constants
 _LOG = structlog.get_logger()
 
 
-def info(data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS) -> Dict[str, Any]:
+def info(
+    data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS
+) -> Dict[str, Any]:
     """Executes the PDAL info pipeline on the TileDB data file."""
     if crs is None:
         crs = constants.DEFAULT_CRS
@@ -32,7 +34,9 @@ def info(data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS) -> 
     return metadata
 
 
-def stats(data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS) -> Dict[str, Any]:
+def stats(
+    data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS
+) -> Dict[str, Any]:
     """Executes the PDAL info pipeline on the TileDB data file."""
     if crs is None:
         crs = constants.DEFAULT_CRS
@@ -55,7 +59,13 @@ def stats(data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS) ->
     return metadata
 
 
-def pdal_hexbin(data_uri: str, config_pathname: Path, out_pathname: Path, crs: CRS, edge_length: float) -> Dict[str, Any]:
+def pdal_hexbin(
+    data_uri: str,
+    config_pathname: Path,
+    out_pathname: Path,
+    crs: CRS,
+    edge_length: float,
+) -> Dict[str, Any]:
     """
     Get something akin to a convexhull.
     See:

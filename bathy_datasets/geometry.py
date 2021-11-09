@@ -23,26 +23,32 @@ def h3_cell_geometry(row: pandas.core.series.Series) -> Polygon:
     return cell_geometry
 
 
-def h3_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2) -> pandas.core.series.Series:
+def h3_code_parallel(
+    dataframe: pandas.DataFrame, npartitions: int = 2
+) -> pandas.core.series.Series:
     """A basic function for generating h3 ID codes in parallel."""
+
     def _wrap(dataframe):
         return dataframe.apply((lambda row: h3_code(row)), axis=1)
 
     # dask doesn't like mutli-index dataframes
-    dask_data = dask.dataframe.from_pandas(dataframe.reset_index(), npartitions=npartitions)
+    dask_data = dask.dataframe.from_pandas(
+        dataframe.reset_index(), npartitions=npartitions
+    )
 
     return dask_data.map_partitions(_wrap).compute()
 
 
 def h3_cell_count(dataframe: pandas.DataFrame) -> pandas.DataFrame:
     """Count/tally the unique H3 cells."""
-    counts = dataframe.groupby(['h3_index']).h3_index.agg('count').to_frame('count')
+    counts = dataframe.groupby(["h3_index"]).h3_index.agg("count").to_frame("count")
 
     return counts.reset_index()
 
 
 def h3_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
     """Return the polygon geometry per H3 cell."""
+
     def _wrap(dataframe):
         return dataframe.apply((lambda row: h3_cell_geometry(row)), axis=1)
 
@@ -54,7 +60,7 @@ def h3_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2)
 def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     """Dissovle the H3 geometries. The aim is to simplify the inner geometry."""
     geodataframe["dissolve_field"] = 1
-    dissolved = geodataframe.dissolve(by='dissolve_field')
+    dissolved = geodataframe.dissolve(by="dissolve_field")
 
     dissolved.reset_index(drop=True, inplace=True)
     geodataframe.drop("dissolve_field", axis=1, inplace=True)
@@ -62,24 +68,36 @@ def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     return dissolved["geometry"]
 
 
-def rhealpix_code(dataframe: pandas.core.frame.DataFrame, x_name: str = "longitude", y_name: str = "latitude", resolution: int = 15) -> pandas.core.series.Series:
+def rhealpix_code(
+    dataframe: pandas.core.frame.DataFrame,
+    x_name: str = "longitude",
+    y_name: str = "latitude",
+    resolution: int = 15,
+) -> pandas.core.series.Series:
     """Convert a longitude,latitude pair to a rHEALPIX ID code."""
-    region_codes = rhealpix.rhealpix_code(dataframe[x_name].values, dataframe[y_name].values, resolution)
+    region_codes = rhealpix.rhealpix_code(
+        dataframe[x_name].values, dataframe[y_name].values, resolution
+    )
 
     return pandas.Series(region_codes)
 
 
 def rhealpix_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
     """Return the rHEALPIX codes."""
+
     def _wrap(dataframe):
         return dataframe.apply(rhealpix_code, axis=1)
 
-    dask_data = dask.dataframe.from_pandas(dataframe.reset_index(), npartitions=npartitions)
+    dask_data = dask.dataframe.from_pandas(
+        dataframe.reset_index(), npartitions=npartitions
+    )
 
     return dask_data.map_partitions(_wrap).compute()
 
 
-def rhealpix_cell_geometry(dataframe: pandas.core.frame.DataFrame, col_name: str) -> pandas.core.series.Series:
+def rhealpix_cell_geometry(
+    dataframe: pandas.core.frame.DataFrame, col_name: str
+) -> pandas.core.series.Series:
     """Generate rHEALPIX cell geometries for each cell code ID."""
     geometries = rhealpix.rhealpix_geo_boundary(dataframe[col_name].values)
 
@@ -88,9 +106,12 @@ def rhealpix_cell_geometry(dataframe: pandas.core.frame.DataFrame, col_name: str
 
 def rhealpix_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
     """Generate rHEALPIX cell geometries for each cell code ID."""
+
     def _wrap(dataframe):
         return dataframe.apply(rhealpix_code, axis=1)
 
-    dask_data = dask.dataframe.from_pandas(dataframe.reset_index(), npartitions=npartitions)
+    dask_data = dask.dataframe.from_pandas(
+        dataframe.reset_index(), npartitions=npartitions
+    )
 
     return dask_data.map_partitions(_wrap).compute()
