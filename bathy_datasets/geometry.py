@@ -5,7 +5,7 @@ from shapely.geometry import Polygon
 import geopandas
 import structlog
 
-from bathy_datasets import constants, rhealpix
+from bathy_datasets import rhealpix
 
 _LOG = structlog.get_logger()
 
