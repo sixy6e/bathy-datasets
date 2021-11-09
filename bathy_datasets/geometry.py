@@ -57,6 +57,16 @@ def h3_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2)
     return dask_data.map_partitions(_wrap).compute()
 
 
+def cell_id_count(dataframe: pandas.DataFrame, col_name: str) -> pandas.DataFrame:
+    """
+    Count/tally the unique cell ID's to generate coverage density.
+    In general this could work for any field
+    and was initi.
+    """
+    counts = dataframe.groupby([col_name])[col_name].agg("count").to_frame("count")
+    return counts.reset_index()
+
+
 def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     """Dissovle the H3 geometries. The aim is to simplify the inner geometry."""
     geodataframe["dissolve_field"] = 1
