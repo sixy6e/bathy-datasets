@@ -22,7 +22,7 @@ def mbes_domain(tri=False):
     )
 
     if tri:
-        # define a third dimension, depth/z/elevation
+        # define a third dimension, i.e. depth/z/elevation
         zdim = tiledb.Dim(
             "depth",
             domain=(None, None),
