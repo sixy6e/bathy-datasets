@@ -79,7 +79,7 @@ def rhealpix_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
     return dask_data.map_partitions(_wrap).compute()
 
 
-def rhealpix_cell_geometry(dataframe: pandas.core.frame.DataFrame, col_name: str): -> pandas.core.series.Series:
+def rhealpix_cell_geometry(dataframe: pandas.core.frame.DataFrame, col_name: str) -> pandas.core.series.Series:
     """Generate rHEALPIX cell geometries for each cell code ID."""
     geometries = rhealpix.rhealpix_geo_boundary(dataframe[col_name].values)
 
