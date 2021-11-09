@@ -3,31 +3,16 @@ import pandas
 import h3
 from shapely.geometry import Polygon
 import geopandas
-from rhealpixdggs import dggs, ellipsoids
 from osgeo import osr
 import structlog
 
-# from bathy_datasets import constants
+from bathy_datasets import constants, rhealpix
 
 _LOG = structlog.get_logger()
 
 
-def _init_rhealpix():
-    """Initialise an rHEALPIX projection using the WGS84 parameters."""
-    crs = osr.SpatialReference()
-    crs.ImportFromEPSG(4326)
-
-    ellips = ellipsoids.Ellipsoid(a=crs.GetSemiMajor(), b=crs.GetSemiMinor())
-    rhealp = dggs.RHEALPixDGGS(ellips)
-
-    return rhealp
-
-
-RHEALPIX = _init_rhealpix()
-
-
-def lon_lat_2_h3(row: pandas.core.series.Series, resolution: int=15):
-    """Convert a longitude,latitude pair to a H3 index code."""
+def h3_code(row: pandas.core.series.Series, resolution: int = 15):
+    """Convert a longitude,latitude pair to a H3 ID code."""
     code = h3.geo_to_h3(row.latitude, row.longitude, resolution)
     return code
 
@@ -39,10 +24,10 @@ def h3_cell_geometry(row: pandas.core.series.Series) -> Polygon:
     return cell_geometry
 
 
-def h3_index_parallel(dataframe: pandas.DataFrame, npartitions: int=2) -> pandas.core.series.Series:
-    """A basic function for generating h3 index codes in parallel."""
+def h3_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2) -> pandas.core.series.Series:
+    """A basic function for generating h3 ID codes in parallel."""
     def _wrap(dataframe):
-        return dataframe.apply((lambda row: lon_lat_2_h3(row)), axis=1)
+        return dataframe.apply((lambda row: h3_code(row)), axis=1)
 
     # dask doesn't like mutli-index dataframes
     dask_data = dask.dataframe.from_pandas(dataframe.reset_index(), npartitions=npartitions)
@@ -57,7 +42,7 @@ def h3_cell_count(dataframe: pandas.DataFrame) -> pandas.DataFrame:
     return counts.reset_index()
 
 
-def h3_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int=2):
+def h3_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
     """Return the polygon geometry per H3 cell."""
     def _wrap(dataframe):
         return dataframe.apply((lambda row: h3_cell_geometry(row)), axis=1)
@@ -78,9 +63,9 @@ def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     return dissolved["geometry"]
 
 
-def rhealpix_id_geom(row: pandas.core.series.Series, resolution: int=15):
+def rhealpix_id_geom(row: pandas.core.series.Series, resolution: int = 15):
     """Convert a longitude,latitude pair to a rHEALPIX index code and geometry."""
-    cell = RHEALPIX.cell_from_point(resolution, (row.longitude, row.latitude), False)
+    cell = constants.RHEALPIX.cell_from_point(resolution, (row.longitude, row.latitude), False)
 
     idx = "".join(map(str, cell.suid))
     polygon = Polygon(cell.vertices(plane=False))
@@ -88,10 +73,17 @@ def rhealpix_id_geom(row: pandas.core.series.Series, resolution: int=15):
     return idx, polygon
 
 
-def rhealpix_parallel(dataframe: pandas.DataFrame, npartitions: int=2):
-    """Return the rHEALPIX indexes and geometry."""
+def rhealpix_code(dataframe: pandas.core.frame.DataFrame, x_name: str = "longitude", y_name: str = "latitude", resolution: int = 15) -> pandas.core.series.Series:
+    """Convert a longitude,latitude pair to a rHEALPIX ID code."""
+    region_codes = rhealpix.rhealpix_code(dataframe[x_name].values, dataframe[y_name].values, resolution)
+
+    return pandas.Series(region_codes)
+
+
+def rhealpix_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
+    """Return the rHEALPIX codes."""
     def _wrap(dataframe):
-        return dataframe.apply((lambda row: rhealpix_id_geom(row)), axis=1)
+        return dataframe.apply(rhealpix_code, axis=1)
 
     dask_data = dask.dataframe.from_pandas(dataframe.reset_index(), npartitions=npartitions)
 
