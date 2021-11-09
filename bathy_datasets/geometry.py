@@ -3,7 +3,6 @@ import pandas
 import h3
 from shapely.geometry import Polygon
 import geopandas
-from osgeo import osr
 import structlog
 
 from bathy_datasets import constants, rhealpix
@@ -63,16 +62,6 @@ def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     return dissolved["geometry"]
 
 
-def rhealpix_id_geom(row: pandas.core.series.Series, resolution: int = 15):
-    """Convert a longitude,latitude pair to a rHEALPIX index code and geometry."""
-    cell = constants.RHEALPIX.cell_from_point(resolution, (row.longitude, row.latitude), False)
-
-    idx = "".join(map(str, cell.suid))
-    polygon = Polygon(cell.vertices(plane=False))
-
-    return idx, polygon
-
-
 def rhealpix_code(dataframe: pandas.core.frame.DataFrame, x_name: str = "longitude", y_name: str = "latitude", resolution: int = 15) -> pandas.core.series.Series:
     """Convert a longitude,latitude pair to a rHEALPIX ID code."""
     region_codes = rhealpix.rhealpix_code(dataframe[x_name].values, dataframe[y_name].values, resolution)
@@ -82,6 +71,23 @@ def rhealpix_code(dataframe: pandas.core.frame.DataFrame, x_name: str = "longitu
 
 def rhealpix_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
     """Return the rHEALPIX codes."""
+    def _wrap(dataframe):
+        return dataframe.apply(rhealpix_code, axis=1)
+
+    dask_data = dask.dataframe.from_pandas(dataframe.reset_index(), npartitions=npartitions)
+
+    return dask_data.map_partitions(_wrap).compute()
+
+
+def rhealpix_cell_geometry(dataframe: pandas.core.frame.DataFrame, col_name: str): -> pandas.core.series.Series:
+    """Generate rHEALPIX cell geometries for each cell code ID."""
+    geometries = rhealpix.rhealpix_geo_boundary(dataframe[col_name].values)
+
+    return pandas.Series(geometries)
+
+
+def rhealpix_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
+    """Generate rHEALPIX cell geometries for each cell code ID."""
     def _wrap(dataframe):
         return dataframe.apply(rhealpix_code, axis=1)
 
