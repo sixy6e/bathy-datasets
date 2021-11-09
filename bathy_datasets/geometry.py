@@ -82,17 +82,18 @@ def rhealpix_code(
     return pandas.Series(region_codes)
 
 
-def rhealpix_code_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
+def rhealpix_code_parallel(
+    dataframe: pandas.DataFrame,
+    x_name: str = "longitude",
+    y_name: str = "latitude",
+    npartitions: int = 2,
+):
     """Return the rHEALPIX codes."""
-
-    def _wrap(dataframe):
-        return dataframe.apply(rhealpix_code, axis=1)
-
     dask_data = dask.dataframe.from_pandas(
         dataframe.reset_index(), npartitions=npartitions
     )
 
-    return dask_data.map_partitions(_wrap).compute()
+    return dask_data.map_partitions(rhealpix_code, x_name, y_name).compute()
 
 
 def rhealpix_cell_geometry(
@@ -104,14 +105,12 @@ def rhealpix_cell_geometry(
     return pandas.Series(geometries)
 
 
-def rhealpix_cell_geometry_parallel(dataframe: pandas.DataFrame, npartitions: int = 2):
+def rhealpix_cell_geometry_parallel(
+    dataframe: pandas.DataFrame, col_name: str, npartitions: int = 2
+):
     """Generate rHEALPIX cell geometries for each cell code ID."""
-
-    def _wrap(dataframe):
-        return dataframe.apply(rhealpix_code, axis=1)
-
     dask_data = dask.dataframe.from_pandas(
         dataframe.reset_index(), npartitions=npartitions
     )
 
-    return dask_data.map_partitions(_wrap).compute()
+    return dask_data.map_partitions(rhealpix_cell_geometry, col_name).compute()
