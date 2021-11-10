@@ -46,7 +46,7 @@ def str_to_int(s):
 
 
 @jit(nopython=True)
-def _unpack_res_code(code):
+def _unpack_res_code(code: str):
     """Given a rHEALPIX code, unpack into a list of integers."""
     unpacked = []
     for i in code[1:]:
@@ -55,7 +55,7 @@ def _unpack_res_code(code):
 
 
 @jit(nopython=True)
-def _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, width, ul_vertex, n, cells0):
+def _rhealpix_code(prj_x: numpy.ndarray, prj_y: numpy.ndarray, resolution: int, north_square: int, south_square: int, radius: float, cell0_width: float, ul_vertex: numpy.ndarray, nsides: int, cells0: numpy.ndarray, width_max_resolution: float):
     """
     Does the heavy lifting of calculating the region code string identifier.
     """
@@ -71,79 +71,91 @@ def _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, width, ul_vertex, n, cel
         y = prj_y[i]
 
         if (
-            y > r * numpy.pi / 4
-            and y < r * 3 * numpy.pi / 4
-            and x > r * (-numpy.pi + ns * (numpy.pi / 2))
-            and x < r * (-numpy.pi / 2 + ns * (numpy.pi / 2))
+            y > radius * numpy.pi / 4
+            and y < radius * 3 * numpy.pi / 4
+            and x > radius * (-numpy.pi + north_square * (numpy.pi / 2))
+            and x < radius * (-numpy.pi / 2 + north_square * (numpy.pi / 2))
         ):
             s0 = cells0[0]
             ul = ul_vertex[0]
         elif (
-            y > -r * 3 * numpy.pi / 4
-            and y < -r * numpy.pi / 4
-            and x > r * (-numpy.pi + ss * (numpy.pi / 2))
-            and x < r * (-numpy.pi / 2 + ss * (numpy.pi / 2))
+            y > -radius * 3 * numpy.pi / 4
+            and y < -radius * numpy.pi / 4
+            and x > radius * (-numpy.pi + south_square * (numpy.pi / 2))
+            and x < radius * (-numpy.pi / 2 + south_square * (numpy.pi / 2))
         ):
             s0 = cells0[5]
             ul = ul_vertex[5]
         elif (
-            y >= -r * numpy.pi / 4
-            and y <= r * numpy.pi / 4
-            and x >= -r * numpy.pi
-            and x < -r * numpy.pi / 2
+            y >= -radius * numpy.pi / 4
+            and y <= radius * numpy.pi / 4
+            and x >= -radius * numpy.pi
+            and x < -radius * numpy.pi / 2
         ):
             s0 = cells0[1]
             ul = ul_vertex[1]
         elif (
-            y >= -r * numpy.pi / 4
-            and y <= r * numpy.pi / 4
-            and x >= -r * numpy.pi / 2
+            y >= -radius * numpy.pi / 4
+            and y <= radius * numpy.pi / 4
+            and x >= -radius * numpy.pi / 2
             and x < 0
         ):
             s0 = cells0[2]
             ul = ul_vertex[2]
         elif (
-            y >= -r * numpy.pi / 4
-            and y <= r * numpy.pi / 4
+            y >= -radius * numpy.pi / 4
+            and y <= radius * numpy.pi / 4
             and x >= 0
-            and x < r * numpy.pi / 2
+            and x < radius * numpy.pi / 2
         ):
             s0 = cells0[3]
             ul = ul_vertex[3]
         elif (
-            y >= -r * numpy.pi / 4
-            and y <= r * numpy.pi / 4
-            and x >= r * numpy.pi / 2
-            and x < r * numpy.pi
+            y >= -radius * numpy.pi / 4
+            and y <= radius * numpy.pi / 4
+            and x >= radius * numpy.pi / 2
+            and x < radius * numpy.pi
         ):
             s0 = cells0[4]
             ul = ul_vertex[4]
 
-        dx = abs(x - ul[0]) / width
-        dy = abs(y - ul[1]) / width
+        dx = abs(x - ul[0]) / cell0_width
+        dy = abs(y - ul[1]) / cell0_width
 
-        num = abs(int(dy * n ** resolution))
+        # the source included a check for delta == 1 (a new cell) which states
+        # that it is analytically impossible, but potentially could occur due to
+        # floating point calculations
+        if dx == 1:
+            dx -= 0.5 * width_max_resolution / cell0_width
+        if dy == 1:
+            dy -= 0.5 * width_max_resolution / cell0_width
+
+        # conversion to base(nsides) (base(3) in our case)
+        # numpy.base_repr didn't work here (within numba) which is fine as we don't
+        # need to an additional str -> int conversion for array indexing
+        num = abs(int(dy * nsides ** resolution))
         idx = 0
         if num == 0:
             suid_row[:resolution] = 0
             idx = resolution
         else:
             while num:
-                suid_row[idx] = digits[int(num % n)]
-                num //= n
+                suid_row[idx] = digits[int(num % nsides)]
+                num //= nsides
                 idx += 1
 
         row_ids = suid_row[:idx][::-1]
 
-        num = abs(int(dx * n ** resolution))
+        # base conversion
+        num = abs(int(dx * nsides ** resolution))
         idx = 0
         if num == 0:
             suid_col[:resolution] = 0
             idx = resolution
         else:
             while num:
-                suid_col[idx] = digits[int(num % n)]
-                num //= n
+                suid_col[idx] = digits[int(num % nsides)]
+                num //= nsides
                 idx += 1
 
         col_ids = suid_col[:idx][::-1]
@@ -159,22 +171,24 @@ def _rhealpix_code(prj_x, prj_y, resolution, ns, ss, r, width, ul_vertex, n, cel
 
 @jit(nopython=True)
 def _rhealpix_geo_boundary(
-    s0_codes,
-    region_codes,
-    s0_ul_vertices,
-    ncodes,
-    nsides,
-    cell0_width,
-    ellipsoid_radius,
+    s0_codes: numpy.ndarray,
+    region_codes: numpy.ndarray,
+    s0_ul_vertices: numpy.ndarray,
+    ncodes: int,
+    nsides: int,
+    cell0_width: float,
+    ellipsoid_radius: float,
 ):
     """
     Does the heavy lifting of decoding each region code string identifier.
     """
     boundary = numpy.zeros(
         (2, 4, ncodes), dtype="float64"
-    )  # require contiguous blocks later
+    )  # require contiguous blocks later for inverting the coords
     col_map = numpy.array([0, 1, 2, 0, 1, 2, 0, 1, 2], dtype="uint8")
     row_map = numpy.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype="uint8")
+
+    float_nsides = float(nsides)  # some calcs result in zero by not casting
 
     # ['N', 'O', 'P', 'Q', 'R', 'S'] is the Cell0 order
     for i in range(ncodes):
@@ -200,19 +214,21 @@ def _rhealpix_geo_boundary(
         suid_col = col_map[unpacked]
         suid_row = row_map[unpacked]
 
+        # compute the sum of fractional offsets from the origin of each resolution
         dx = 0.0
         dy = 0.0
         for res in range(1, resolution + 1):
             dx += nsides ** (resolution - res) * suid_col[res - 1]
             dy += nsides ** (resolution - res) * suid_row[res - 1]
 
-        dx = dx * float(nsides) ** (-resolution)
-        dy = dy * float(nsides) ** (-resolution)
+        dx = dx * float_nsides ** (-resolution)
+        dy = dy * float_nsides ** (-resolution)
 
+        # distance from cell0's origin
         ulx = xy0[0] + cell0_width * dx
         uly = xy0[1] - cell0_width * dy
 
-        width = ellipsoid_radius * (numpy.pi / 2) * float(nsides) ** (-resolution)
+        width = ellipsoid_radius * (numpy.pi / 2) * float_nsides ** (-resolution)
 
         urx = ulx + width
         ury = uly
@@ -235,7 +251,7 @@ def _rhealpix_geo_boundary(
     return boundary
 
 
-def rhealpix_geo_boundary(region_codes):
+def rhealpix_geo_boundary(region_codes: numpy.ndarray, shapely_geometries: bool = True):
     """
     Calculate the RHEALPIX boundary as projected coordinates.
     Most of the code follows the implementation found at:
@@ -260,6 +276,10 @@ def rhealpix_geo_boundary(region_codes):
     ellipsoid_radius = ellips.R_A
 
     ncodes = region_codes.shape[0]
+
+    # for the case where we have an 'object' datatype
+    if "<U" not in region_codes.dtype.name:
+        region_codes = region_codes.astype(f"<U{len(region_codes[0])}")
 
     s0_codes = region_codes.view("<U1")[:: len(region_codes[0])]
 
@@ -287,7 +307,10 @@ def rhealpix_geo_boundary(region_codes):
     for i in range(ncodes):
         polygons.append(Polygon(boundary[i]))
 
-    return polygons, boundary
+    if shapely_geometries:
+        return polygons
+
+    return boundary
 
 
 def rhealpix_code(longitude, latitude, resolution):
@@ -310,24 +333,25 @@ def rhealpix_code(longitude, latitude, resolution):
     ellips = ellipsoids.Ellipsoid(
         a=from_crs.ellipsoid.semi_major_metre, b=from_crs.ellipsoid.semi_minor_metre
     )
-    rhealpix = dggs.RHEALPixDGGS(ellips)
+    rhealp = dggs.RHEALPixDGGS(ellips)
 
     prj_x, prj_y = transformer.transform(longitude, latitude)
 
-    ns = rhealpix.north_square
-    ss = rhealpix.south_square
-    r = rhealpix.ellipsoid.R_A
-    nsides = rhealpix.N_side
+    ns = rhealp.north_square
+    ss = rhealp.south_square
+    r = rhealp.ellipsoid.R_A
+    nsides = rhealp.N_side
 
     ul_vertices = numpy.zeros((6, 2), "float64")
-    for i, cell in enumerate(rhealpix.cells0):
-        ul_vertices[i] = rhealpix.ul_vertex[cell]
+    for i, cell in enumerate(rhealp.cells0):
+        ul_vertices[i] = rhealp.ul_vertex[cell]
 
-    cell0_width = rhealpix.cell_width(0)
-    cells0 = numpy.array(rhealpix.cells0)
+    cell0_width = rhealp.cell_width(0)
+    cells0 = numpy.array(rhealp.cells0)
+    width_max_resolution = rhealp.cell_width(rhealp.max_resolution)
 
     region_codes = _rhealpix_code(
-        prj_x, prj_y, resolution, ns, ss, r, cell0_width, ul_vertices, nsides, cells0
+        prj_x, prj_y, resolution, ns, ss, r, cell0_width, ul_vertices, nsides, cells0, width_max_resolution
     )
 
     return region_codes
