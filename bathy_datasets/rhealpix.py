@@ -212,7 +212,7 @@ def _rhealpix_geo_boundary(
         ulx = xy0[0] + cell0_width * dx
         uly = xy0[1] - cell0_width * dy
 
-        width = ellipsoid_radius * (numpy.pi / 2) * nsides ** (-resolution)
+        width = ellipsoid_radius * (numpy.pi / 2) * float(nsides) ** (-resolution)
 
         urx = ulx + width
         ury = uly
@@ -287,7 +287,7 @@ def rhealpix_geo_boundary(region_codes):
     for i in range(ncodes):
         polygons.append(Polygon(boundary[i]))
 
-    return polygons
+    return polygons, boundary
 
 
 def rhealpix_code(longitude, latitude, resolution):
