@@ -55,7 +55,19 @@ def _unpack_res_code(code: str):
 
 
 @jit(nopython=True)
-def _rhealpix_code(prj_x: numpy.ndarray, prj_y: numpy.ndarray, resolution: int, north_square: int, south_square: int, radius: float, cell0_width: float, ul_vertex: numpy.ndarray, nsides: int, cells0: numpy.ndarray, width_max_resolution: float):
+def _rhealpix_code(
+    prj_x: numpy.ndarray,
+    prj_y: numpy.ndarray,
+    resolution: int,
+    north_square: int,
+    south_square: int,
+    radius: float,
+    cell0_width: float,
+    ul_vertex: numpy.ndarray,
+    nsides: int,
+    cells0: numpy.ndarray,
+    width_max_resolution: float,
+):
     """
     Does the heavy lifting of calculating the region code string identifier.
     """
@@ -351,7 +363,17 @@ def rhealpix_code(longitude, latitude, resolution):
     width_max_resolution = rhealp.cell_width(rhealp.max_resolution)
 
     region_codes = _rhealpix_code(
-        prj_x, prj_y, resolution, ns, ss, r, cell0_width, ul_vertices, nsides, cells0, width_max_resolution
+        prj_x,
+        prj_y,
+        resolution,
+        ns,
+        ss,
+        r,
+        cell0_width,
+        ul_vertices,
+        nsides,
+        cells0,
+        width_max_resolution,
     )
 
     return region_codes
