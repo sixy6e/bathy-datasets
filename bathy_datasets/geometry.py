@@ -89,7 +89,7 @@ def rhealpix_code(
         dataframe[x_name].values, dataframe[y_name].values, resolution
     )
 
-    return pandas.Series(region_codes)
+    return region_codes
 
 
 def rhealpix_code_parallel(
