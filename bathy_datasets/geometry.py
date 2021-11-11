@@ -3,6 +3,7 @@ import pandas
 import h3
 from shapely.geometry import Polygon
 import geopandas
+from typing import List
 import structlog
 
 from bathy_datasets import rhealpix
@@ -83,7 +84,7 @@ def rhealpix_code(
     x_name: str = "longitude",
     y_name: str = "latitude",
     resolution: int = 15,
-) -> pandas.core.series.Series:
+) -> List:
     """Convert a longitude,latitude pair to a rHEALPIX ID code."""
     region_codes = rhealpix.rhealpix_code(
         dataframe[x_name].values, dataframe[y_name].values, resolution
@@ -108,11 +109,11 @@ def rhealpix_code_parallel(
 
 def rhealpix_cell_geometry(
     dataframe: pandas.core.frame.DataFrame, col_name: str
-) -> pandas.core.series.Series:
+) -> List:
     """Generate rHEALPIX cell geometries for each cell code ID."""
     geometries = rhealpix.rhealpix_geo_boundary(dataframe[col_name].values)
 
-    return pandas.Series(geometries)
+    return geometries
 
 
 def rhealpix_cell_geometry_parallel(
