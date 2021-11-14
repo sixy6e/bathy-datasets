@@ -126,6 +126,15 @@ def mbes_attrs():
             dtype=numpy.float32,
             filters=[tiledb.ZstdFilter(level=16)],
         ),
+        tiledb.Attr(
+            "centre_beam", dtype=bool, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "beam_number", dtype=numpy.uint16, filters=[tiledb.ZstdFilter(level=16)]
+        ),
+        tiledb.Attr(
+            "region_code", dtype=str, filters=[tiledb.ZstdFilter(level=16)]
+        ),
     ]
 
     return attrs
