@@ -127,7 +127,7 @@ def mbes_attrs():
             filters=[tiledb.ZstdFilter(level=16)],
         ),
         tiledb.Attr(
-            "centre_beam", dtype=bool, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]
+            "centre_beam", dtype=numpy.uint8, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]
         ),
         tiledb.Attr(
             "beam_number", dtype=numpy.uint16, filters=[tiledb.ZstdFilter(level=16)]
