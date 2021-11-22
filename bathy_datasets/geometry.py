@@ -70,26 +70,41 @@ def cell_id_count(dataframe: pandas.DataFrame, col_name: str) -> pandas.DataFram
 
 def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     """Dissovle the H3 geometries. The aim is to simplify the inner geometry."""
-    # geodataframe = geodataframe.copy()
-    # geodataframe["dissolve_field"] = 1
+    geodataframe = geodataframe.copy()
+    geodataframe["dissolve_field"] = 1
 
+    dissolved = geodataframe.dissolve(by="dissolve_field")
+    dissolved.reset_index(drop=True, inplace=True)
+
+    return dissolved["geometry"]
+
+
+def dissolve_via_buffer(
+    geodataframe: geopandas.GeoDataFrame, distance: float = 1e-10
+) -> geopandas.GeoDataFrame:
+    """
+    Dissovle the H3 geometries by first bufferring, then dissolving then eroding the buffer.
+    The basis for this method was that for some cells, neat edges weren't occuring.
+    Most likely due to floating point differences.
+    For example:
+    Cell "R78710051642373"; the east edge is 144.5430819225464 whereas
+    Cell "R78710051642374"; the east edge is 144.54308192254643.
+    A difference of 0.00000000000003 or 3e-14.
+    """
     # was finding issues in not all regions were being dissolved
     # could be due to precision of input was very high
     # even though edges were identical (or apparently identical)
     # so buffer by a tiny amount, dissolve then reverse the buffer (erode)
     buffer = geopandas.GeoDataFrame(
-        {"geometry": geodataframe.buffer(1e-10, cap_style=3, join_style=2)}
+        {"geometry": geodataframe.buffer(distance, cap_style=3, join_style=2)}
     )
     buffer["dissolve_field"] = 1
 
     dissolved = buffer.dissolve(by="dissolve_field")
     dissolved.reset_index(drop=True, inplace=True)
 
-    erode = dissolved.buffer(-1e-10, cap_style=3, join_style=2)
+    erode = dissolved.buffer(-distance, cap_style=3, join_style=2)
 
-    # geodataframe.drop("dissolve_field", axis=1, inplace=True)
-
-    # return dissolved["geometry"]
     return erode
 
 
