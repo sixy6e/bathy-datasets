@@ -263,7 +263,12 @@ def _rhealpix_geo_boundary(
     return boundary
 
 
-def rhealpix_geo_boundary(region_codes: numpy.ndarray, shapely_geometries: bool = True):
+def rhealpix_geo_boundary(
+    region_codes: numpy.ndarray,
+    shapely_geometries: bool = True,
+    round_geoms: bool = True,
+    decimals: int = 14,
+):
     """
     Calculate the RHEALPIX boundary as projected coordinates.
     Most of the code follows the implementation found at:
@@ -313,6 +318,12 @@ def rhealpix_geo_boundary(region_codes: numpy.ndarray, shapely_geometries: bool 
     _ = transformer.transform(
         boundary[0, :, :].ravel(), boundary[1, :, :].ravel(), inplace=True
     )
+
+    # rounding the coordinates as a way of handling differnces in floating point calcs
+    # the idea behind this is to enforce (hopefully) neat cell edges
+    if round_geoms:
+        _ = numpy.around(boundary, decimals, out=boundary)
+
     boundary = boundary.transpose(2, 1, 0)
 
     polygons = []
