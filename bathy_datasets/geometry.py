@@ -70,13 +70,27 @@ def cell_id_count(dataframe: pandas.DataFrame, col_name: str) -> pandas.DataFram
 
 def dissolve(geodataframe: geopandas.GeoDataFrame) -> geopandas.GeoDataFrame:
     """Dissovle the H3 geometries. The aim is to simplify the inner geometry."""
-    geodataframe["dissolve_field"] = 1
-    dissolved = geodataframe.dissolve(by="dissolve_field")
+    # geodataframe = geodataframe.copy()
+    # geodataframe["dissolve_field"] = 1
 
+    # was finding issues in not all regions were being dissolved
+    # could be due to precision of input was very high
+    # even though edges were identical (or apparently identical)
+    # so buffer by a tiny amount, dissolve then reverse the buffer (erode)
+    buffer = geopandas.GeoDataFrame(
+        {"geometry": geodataframe.buffer(1e-10, cap_style=3, join_style=2)}
+    )
+    buffer["dissolve_field"] = 1
+
+    dissolved = buffer.dissolve(by="dissolve_field")
     dissolved.reset_index(drop=True, inplace=True)
-    geodataframe.drop("dissolve_field", axis=1, inplace=True)
 
-    return dissolved["geometry"]
+    erode = dissolved.buffer(-1e-10, cap_style=3, join_style=2)
+
+    # geodataframe.drop("dissolve_field", axis=1, inplace=True)
+
+    # return dissolved["geometry"]
+    return erode
 
 
 def rhealpix_code(
