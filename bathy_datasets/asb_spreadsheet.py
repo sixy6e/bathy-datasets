@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Any
 import pandas
 import structlog
 
@@ -44,9 +44,9 @@ EXCLUDE: str = "Inherited"
 HEADER: int = 1
 
 
-def read_sheet(pathname: str, sheetname: str) -> pandas.DataFrame:
+def read_sheet(pathname: str, sheetname: str, storage_options: Dict[str, Any] = None) -> pandas.DataFrame:
     """Read a specific sheet from an ASB Excel Spreadsheet."""
-    dataframe = pandas.read_excel(pathname, sheet_name=sheetname, header=HEADER)
+    dataframe = pandas.read_excel(pathname, sheet_name=sheetname, header=HEADER, storage_options=storage_options)
 
     return dataframe
 
@@ -80,14 +80,14 @@ def clean_metadata(dataframe, column_type):
     return clean_md
 
 
-def harvest(pathname: str) -> Dict[str, pandas.DataFrame]:
+def harvest(pathname: str, storage_options: Dict[str, Any] = None) -> Dict[str, pandas.DataFrame]:
     """Harvest metadata from the AusSeabed Spreadsheet."""
     metadata: Dict[str, pandas.DataFrame] = {}
 
     for sheet_name in SHEET_NAMES:
         enumerator = BathyColumns if "bath" in sheet_name.lower() else SurveyColumns
         cols = [column.value for column in enumerator]
-        dataframe = read_sheet(pathname, sheet_name)
+        dataframe = read_sheet(pathname, sheet_name, storage_options)
 
         query = (dataframe.Requirement != EXCLUDE) & (
             dataframe[enumerator.VALUE.value].notnull()
