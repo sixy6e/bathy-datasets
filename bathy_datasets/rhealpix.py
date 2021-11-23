@@ -267,7 +267,7 @@ def rhealpix_geo_boundary(
     region_codes: numpy.ndarray,
     shapely_geometries: bool = True,
     round_coords: bool = True,
-    decimals: int = 14,
+    decimals: int = 11,
 ):
     """
     Calculate the RHEALPIX boundary as projected coordinates.

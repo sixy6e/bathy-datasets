@@ -140,7 +140,7 @@ def rhealpix_cell_geometry(
     dataframe: pandas.core.frame.DataFrame,
     col_name: str,
     round_coords: bool = True,
-    decimals: int = 14,
+    decimals: int = 11,
 ) -> List:
     """Generate rHEALPIX cell geometries for each cell code ID."""
     geometries = rhealpix.rhealpix_geo_boundary(
