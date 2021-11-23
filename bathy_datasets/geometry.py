@@ -137,10 +137,15 @@ def rhealpix_code_parallel(
 
 
 def rhealpix_cell_geometry(
-    dataframe: pandas.core.frame.DataFrame, col_name: str
+    dataframe: pandas.core.frame.DataFrame,
+    col_name: str,
+    round_coords: bool = True,
+    decimals: int = 14,
 ) -> List:
     """Generate rHEALPIX cell geometries for each cell code ID."""
-    geometries = rhealpix.rhealpix_geo_boundary(dataframe[col_name].values)
+    geometries = rhealpix.rhealpix_geo_boundary(
+        dataframe[col_name].values, round_coords=round_coords, decimals=decimals
+    )
 
     return geometries
 

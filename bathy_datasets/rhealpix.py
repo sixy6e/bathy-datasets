@@ -266,7 +266,7 @@ def _rhealpix_geo_boundary(
 def rhealpix_geo_boundary(
     region_codes: numpy.ndarray,
     shapely_geometries: bool = True,
-    round_geoms: bool = True,
+    round_coords: bool = True,
     decimals: int = 14,
 ):
     """
@@ -321,7 +321,7 @@ def rhealpix_geo_boundary(
 
     # rounding the coordinates as a way of handling differnces in floating point calcs
     # the idea behind this is to enforce (hopefully) neat cell edges
-    if round_geoms:
+    if round_coords:
         _ = numpy.around(boundary, decimals, out=boundary)
 
     boundary = boundary.transpose(2, 1, 0)
