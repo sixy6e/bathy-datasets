@@ -28,8 +28,122 @@ cells which posed a speed problem. Hence this work.
 import numpy
 from numba import jit
 from pyproj import CRS, Transformer
-from rhealpixdggs import dggs, ellipsoids
+import attr
+# from rhealpixdggs import dggs, ellipsoids  # possibly bring back for production
 from shapely.geometry import Polygon
+
+
+@attr.s(repr=False)
+class Ellipsoid:
+    """
+    At this stage a temporary implementation specifically for a project.
+    This is simply reduce the need for a dependency on:
+    https://github.com/manaakiwhenua/rhealpixdggs-py
+
+    Afterwards, we should work with TileDB to bundle additional libs
+    we require into their build.
+    """
+
+    a: float = attr.ib()
+    b: float = attr.ib()
+    e: float = attr.ib()
+    f: float = attr.ib()
+    inv_f: float = attr.ib()
+    ra: float = attr.ib()
+
+    @classmethod
+    def from_crs(cls, crs: CRS = CRS.from_epsg(4326)):
+        """Ellipsoid constructor"""
+        a = crs.ellipsoid.semi_major_metre
+        b = crs.ellipsoid.semi_minor_metre
+        e = numpy.sqrt(1 - (b / a) ** 2)
+        f = (a - b) / a
+        inv_f = 1 / f
+        k = numpy.sqrt(
+            0.5 * (1 - (1 - e**2) / (2 * e) * numpy.log((1 - e) / (1 + e)))
+        )
+        ra = a * k
+
+        return cls(a, b, e, f, inv_f, ra)
+
+
+@attr.s(repr=False)
+class RhealpixDGGS:
+    """
+    At this stage a temporary implementation specifically for a project.
+    This is simply reduce the need for a dependency on:
+    https://github.com/manaakiwhenua/rhealpixdggs-py
+
+    Afterwards, we should work with TileDB to bundle additional libs
+    we require into their build.
+    """
+
+    ellipsoid: Ellipsoid = attr.ib()
+    n_side: int = attr.ib()
+    north_square: int = attr.ib()
+    south_square: int = attr.ib()
+    max_areal_resolution: int = attr.ib()
+    max_resolution: float = attr.ib()
+
+    @classmethod
+    def from_ellipsoid(cls, ellipsoid: Ellipsoid = Ellipsoid.from_crs()):
+        """RhealpixDGGS constructor."""
+        n_side = 3
+        north_square = 0
+        south_square = 0
+        max_areal_resolution = 1
+        max_resolution = int(
+            numpy.ceil(
+                numpy.log(ellipsoid.ra**2 * (2 * numpy.pi / 3) / max_areal_resolution)
+                / (2 * numpy.log(n_side))
+            )
+        )
+
+        return cls(
+            ellipsoid,
+            n_side,
+            north_square,
+            south_square,
+            max_areal_resolution,
+            max_resolution,
+        )
+
+    @property
+    def cells0(self):
+        """Cell ID's at root level"""
+        cells = ["N", "O", "P", "Q", "R", "S"]
+        return cells
+
+    @property
+    def ul_vertex(self):
+        """Coordinates for upper left corner of each root level cell."""
+        ul_radius_one = {
+            self.cells0[0]: numpy.array(
+                (-numpy.pi + self.north_square * numpy.pi / 2, 3 * numpy.pi / 4)
+            ),
+            self.cells0[1]: numpy.array((-numpy.pi, numpy.pi / 4)),
+            self.cells0[2]: numpy.array((-numpy.pi / 2, numpy.pi / 4)),
+            self.cells0[3]: numpy.array((0, numpy.pi / 4)),
+            self.cells0[4]: numpy.array((numpy.pi / 2, numpy.pi / 4)),
+            self.cells0[5]: numpy.array(
+                (-numpy.pi + self.south_square * numpy.pi / 2, -numpy.pi / 4)
+            ),
+        }
+
+        # order might have some importance elsewhere
+        # ordereddict might be better than looping over the list
+        ul_vtx = {cell: self.ellipsoid.ra * ul_radius_one[cell] for cell in self.cells0}
+
+        return ul_vtx
+
+    def cell_width(self, resolution):
+        """
+        The width of a planar cell.
+        For this specific implementation, we're ignoring the case of
+        ellipsoidal cells.
+        """
+        result = self.ellipsoid.ra * (numpy.pi / 2) * self.n_side ** (-resolution)
+        return result
 
 
 @jit(nopython=True)
@@ -61,10 +175,10 @@ def _rhealpix_code(
     resolution: int,
     north_square: int,
     south_square: int,
-    radius: float,
+    authalic_radius: float,
     cell0_width: float,
     ul_vertex: numpy.ndarray,
-    nsides: int,
+    nside: int,
     cells0: numpy.ndarray,
     width_max_resolution: float,
 ):
@@ -83,50 +197,50 @@ def _rhealpix_code(
         y = prj_y[i]
 
         if (
-            y > radius * numpy.pi / 4
-            and y < radius * 3 * numpy.pi / 4
-            and x > radius * (-numpy.pi + north_square * (numpy.pi / 2))
-            and x < radius * (-numpy.pi / 2 + north_square * (numpy.pi / 2))
+            y > authalic_radius * numpy.pi / 4
+            and y < authalic_radius * 3 * numpy.pi / 4
+            and x > authalic_radius * (-numpy.pi + north_square * (numpy.pi / 2))
+            and x < authalic_radius * (-numpy.pi / 2 + north_square * (numpy.pi / 2))
         ):
             s0 = cells0[0]
             ul = ul_vertex[0]
         elif (
-            y > -radius * 3 * numpy.pi / 4
-            and y < -radius * numpy.pi / 4
-            and x > radius * (-numpy.pi + south_square * (numpy.pi / 2))
-            and x < radius * (-numpy.pi / 2 + south_square * (numpy.pi / 2))
+            y > -authalic_radius * 3 * numpy.pi / 4
+            and y < -authalic_radius * numpy.pi / 4
+            and x > authalic_radius * (-numpy.pi + south_square * (numpy.pi / 2))
+            and x < authalic_radius * (-numpy.pi / 2 + south_square * (numpy.pi / 2))
         ):
             s0 = cells0[5]
             ul = ul_vertex[5]
         elif (
-            y >= -radius * numpy.pi / 4
-            and y <= radius * numpy.pi / 4
-            and x >= -radius * numpy.pi
-            and x < -radius * numpy.pi / 2
+            y >= -authalic_radius * numpy.pi / 4
+            and y <= authalic_radius * numpy.pi / 4
+            and x >= -authalic_radius * numpy.pi
+            and x < -authalic_radius * numpy.pi / 2
         ):
             s0 = cells0[1]
             ul = ul_vertex[1]
         elif (
-            y >= -radius * numpy.pi / 4
-            and y <= radius * numpy.pi / 4
-            and x >= -radius * numpy.pi / 2
+            y >= -authalic_radius * numpy.pi / 4
+            and y <= authalic_radius * numpy.pi / 4
+            and x >= -authalic_radius * numpy.pi / 2
             and x < 0
         ):
             s0 = cells0[2]
             ul = ul_vertex[2]
         elif (
-            y >= -radius * numpy.pi / 4
-            and y <= radius * numpy.pi / 4
+            y >= -authalic_radius * numpy.pi / 4
+            and y <= authalic_radius * numpy.pi / 4
             and x >= 0
-            and x < radius * numpy.pi / 2
+            and x < authalic_radius * numpy.pi / 2
         ):
             s0 = cells0[3]
             ul = ul_vertex[3]
         elif (
-            y >= -radius * numpy.pi / 4
-            and y <= radius * numpy.pi / 4
-            and x >= radius * numpy.pi / 2
-            and x < radius * numpy.pi
+            y >= -authalic_radius * numpy.pi / 4
+            and y <= authalic_radius * numpy.pi / 4
+            and x >= authalic_radius * numpy.pi / 2
+            and x < authalic_radius * numpy.pi
         ):
             s0 = cells0[4]
             ul = ul_vertex[4]
@@ -142,32 +256,32 @@ def _rhealpix_code(
         if dy == 1:
             dy -= 0.5 * width_max_resolution / cell0_width
 
-        # conversion to base(nsides) (base(3) in our case)
+        # conversion to base(nside) (base(3) in our case)
         # numpy.base_repr didn't work here (within numba) which is fine as we don't
         # need to an additional str -> int conversion for array indexing
-        num = abs(int(dy * nsides ** resolution))
+        num = abs(int(dy * nside**resolution))
         idx = 0
         if num == 0:
             suid_row[:resolution] = 0
             idx = resolution
         else:
             while num:
-                suid_row[idx] = digits[int(num % nsides)]
-                num //= nsides
+                suid_row[idx] = digits[int(num % nside)]
+                num //= nside
                 idx += 1
 
         row_ids = suid_row[:idx][::-1]
 
         # base conversion
-        num = abs(int(dx * nsides ** resolution))
+        num = abs(int(dx * nside**resolution))
         idx = 0
         if num == 0:
             suid_col[:resolution] = 0
             idx = resolution
         else:
             while num:
-                suid_col[idx] = digits[int(num % nsides)]
-                num //= nsides
+                suid_col[idx] = digits[int(num % nside)]
+                num //= nside
                 idx += 1
 
         col_ids = suid_col[:idx][::-1]
@@ -187,9 +301,9 @@ def _rhealpix_geo_boundary(
     region_codes: numpy.ndarray,
     s0_ul_vertices: numpy.ndarray,
     ncodes: int,
-    nsides: int,
+    nside: int,
     cell0_width: float,
-    ellipsoid_radius: float,
+    authalic_radius: float,
 ):
     """
     Does the heavy lifting of decoding each region code string identifier.
@@ -200,7 +314,7 @@ def _rhealpix_geo_boundary(
     col_map = numpy.array([0, 1, 2, 0, 1, 2, 0, 1, 2], dtype="uint8")
     row_map = numpy.array([0, 0, 0, 1, 1, 1, 2, 2, 2], dtype="uint8")
 
-    float_nsides = float(nsides)  # some calcs result in zero by not casting
+    float_nside = float(nside)  # some calcs result in zero by not casting
 
     # ['N', 'O', 'P', 'Q', 'R', 'S'] is the Cell0 order
     for i in range(ncodes):
@@ -230,17 +344,17 @@ def _rhealpix_geo_boundary(
         dx = 0.0
         dy = 0.0
         for res in range(1, resolution + 1):
-            dx += nsides ** (resolution - res) * suid_col[res - 1]
-            dy += nsides ** (resolution - res) * suid_row[res - 1]
+            dx += nside ** (resolution - res) * suid_col[res - 1]
+            dy += nside ** (resolution - res) * suid_row[res - 1]
 
-        dx = dx * float_nsides ** (-resolution)
-        dy = dy * float_nsides ** (-resolution)
+        dx = dx * float_nside ** (-resolution)
+        dy = dy * float_nside ** (-resolution)
 
         # distance from cell0's origin
         ulx = xy0[0] + cell0_width * dx
         uly = xy0[1] - cell0_width * dy
 
-        width = ellipsoid_radius * (numpy.pi / 2) * float_nsides ** (-resolution)
+        width = authalic_radius * (numpy.pi / 2) * float_nside ** (-resolution)
 
         urx = ulx + width
         ury = uly
@@ -284,13 +398,19 @@ def rhealpix_geo_boundary(
 
     transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
 
-    ellips = ellipsoids.Ellipsoid(
-        a=to_crs.ellipsoid.semi_major_metre, b=to_crs.ellipsoid.semi_minor_metre
-    )
-    rhealpix = dggs.RHEALPixDGGS(ellips)
-    nsides = rhealpix.N_side
+    # original setup; possibly bring back for production
+    # ellips = ellipsoids.Ellipsoid(
+    #     a=to_crs.ellipsoid.semi_major_metre, b=to_crs.ellipsoid.semi_minor_metre
+    # )
+    # rhealpix = dggs.RHEALPixDGGS(ellips)
+    # nside = rhealpix.N_side
+    # cell0_width = rhealpix.cell_width(0)
+    # authalic_radius = ellips.R_A
+
+    rhealpix = RhealpixDGGS.from_ellipsoid(Ellipsoid.from_crs(to_crs))
+    nside = rhealpix.n_side
     cell0_width = rhealpix.cell_width(0)
-    ellipsoid_radius = ellips.R_A
+    authalic_radius = rhealpix.ellipsoid.ra
 
     ncodes = region_codes.shape[0]
 
@@ -309,9 +429,9 @@ def rhealpix_geo_boundary(
         region_codes,
         ul_vertices,
         ncodes,
-        nsides,
+        nside,
         cell0_width,
-        ellipsoid_radius,
+        authalic_radius,
     )
 
     # this next part requires contiguous blocks for inplace calcs
@@ -347,23 +467,28 @@ def rhealpix_code(longitude, latitude, resolution):
     but reworked to facilitate faster processing by working on arrays.
     Some parts could be entirely numpy (or numexpr to save memory)
     but instead used numba to retain the simpler per element logic.
+
+    Currently assuming that input lon/lat values are based on EPSG:4326.
     """
     from_crs = CRS.from_epsg(4326)
     to_crs = CRS.from_string("+proj=rhealpix")
 
     transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
 
-    ellips = ellipsoids.Ellipsoid(
-        a=from_crs.ellipsoid.semi_major_metre, b=from_crs.ellipsoid.semi_minor_metre
-    )
-    rhealp = dggs.RHEALPixDGGS(ellips)
+    # original setup; possibly bring back for production
+    # ellips = ellipsoids.Ellipsoid(
+    #     a=from_crs.ellipsoid.semi_major_metre, b=from_crs.ellipsoid.semi_minor_metre
+    # )
+    # rhealp = dggs.RHEALPixDGGS(ellips)
+
+    rhealp = RhealpixDGGS.from_ellipsoid(Ellipsoid.from_crs(from_crs))
 
     prj_x, prj_y = transformer.transform(longitude, latitude)
 
     ns = rhealp.north_square
     ss = rhealp.south_square
-    r = rhealp.ellipsoid.R_A
-    nsides = rhealp.N_side
+    ra = rhealp.ellipsoid.ra
+    nside = rhealp.n_side
 
     ul_vertices = numpy.zeros((6, 2), "float64")
     for i, cell in enumerate(rhealp.cells0):
@@ -379,10 +504,10 @@ def rhealpix_code(longitude, latitude, resolution):
         resolution,
         ns,
         ss,
-        r,
+        ra,
         cell0_width,
         ul_vertices,
-        nsides,
+        nside,
         cells0,
         width_max_resolution,
     )
