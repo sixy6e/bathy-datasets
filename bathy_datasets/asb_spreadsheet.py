@@ -44,9 +44,13 @@ EXCLUDE: str = "Inherited"
 HEADER: int = 1
 
 
-def read_sheet(pathname: str, sheetname: str, storage_options: Dict[str, Any] = None) -> pandas.DataFrame:
+def read_sheet(
+    pathname: str, sheetname: str, storage_options: Dict[str, Any] = None
+) -> pandas.DataFrame:
     """Read a specific sheet from an ASB Excel Spreadsheet."""
-    dataframe = pandas.read_excel(pathname, sheet_name=sheetname, header=HEADER, storage_options=storage_options)
+    dataframe = pandas.read_excel(
+        pathname, sheet_name=sheetname, header=HEADER, storage_options=storage_options
+    )
 
     return dataframe
 
@@ -55,7 +59,14 @@ def standardise_name(name):
     """
     Standardise field names: Survey (Title) -> survery_title
     """
-    return name.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    result = name.lower().replace(" ", "_").replace("(", "").replace(")", "")
+
+    # remove any starting and ending "_" that have been inserted
+    start_loc = 1 if result[0] == "_" else 0
+    loc = result.rfind("_")
+    end_loc = loc if loc == (len(result) - 1) else len(result)
+
+    return result[start_loc:end_loc]
 
 
 def clean_metadata(dataframe, column_type):
@@ -74,13 +85,20 @@ def clean_metadata(dataframe, column_type):
         if "keyword" in key.lower():
             clean_md["keywords"] = new_value.split(",")
         else:
-            new_key = standardise_name(key)
-            clean_md[new_key] = new_value
+            if "\u2026" in key:
+                # remove any horizonal ellipsis, all cases have a proceeding "_"
+                new_key = standardise_name(key[key.find("\u2026") + 2:])
+                clean_md[new_key] = new_value
+            else:
+                new_key = standardise_name(key)
+                clean_md[new_key] = new_value
 
     return clean_md
 
 
-def harvest(pathname: str, storage_options: Dict[str, Any] = None) -> Dict[str, pandas.DataFrame]:
+def harvest(
+    pathname: str, storage_options: Dict[str, Any] = None
+) -> Dict[str, pandas.DataFrame]:
     """Harvest metadata from the AusSeabed Spreadsheet."""
     metadata: Dict[str, pandas.DataFrame] = {}
 
