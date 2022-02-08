@@ -1,3 +1,4 @@
+import dateutil
 from enum import Enum
 from typing import List, Dict, Any
 import pandas
@@ -88,10 +89,13 @@ def clean_metadata(dataframe, column_type):
             if "\u2026" in key:
                 # remove any horizonal ellipsis, all cases have a proceeding "_"
                 new_key = standardise_name(key[key.find("\u2026") + 2:])
-                clean_md[new_key] = new_value
             else:
                 new_key = standardise_name(key)
-                clean_md[new_key] = new_value
+            if "datetime" in new_key:
+                # we're getting a mixture of everything
+                # hopefully dateutil can resolve most of it
+                new_value = dateutil.parser.parse(new_value)
+            clean_md[new_key] = new_value
 
     return clean_md
 
@@ -99,7 +103,12 @@ def clean_metadata(dataframe, column_type):
 def harvest(
     pathname: str, storage_options: Dict[str, Any] = None
 ) -> Dict[str, pandas.DataFrame]:
-    """Harvest metadata from the AusSeabed Spreadsheet."""
+    """
+    Harvest metadata from the AusSeabed Spreadsheet.
+    storage_options passes through to s3fs.
+    See https://s3fs.readthedocs.io/en/latest/index.html for more info.
+    eg {"profile":"pl019-data"}
+    """
     metadata: Dict[str, pandas.DataFrame] = {}
 
     for sheet_name in SHEET_NAMES:
