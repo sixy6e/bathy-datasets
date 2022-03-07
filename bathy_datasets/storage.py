@@ -7,14 +7,14 @@ def mbes_domain(tri=False):
     index_filters = tiledb.FilterList([tiledb.ZstdFilter(level=16)])
 
     xdim = tiledb.Dim(
-        "longitude",
+        "X",
         domain=(None, None),
         tile=1000,
         dtype=numpy.float64,
         filters=index_filters,
     )
     ydim = tiledb.Dim(
-        "latitude",
+        "Y",
         domain=(None, None),
         tile=1000,
         dtype=numpy.float64,
@@ -24,7 +24,7 @@ def mbes_domain(tri=False):
     if tri:
         # define a third dimension, i.e. depth/z/elevation
         zdim = tiledb.Dim(
-            "depth",
+            "Z",
             domain=(None, None),
             tile=1000,
             dtype=numpy.float64,
@@ -41,11 +41,11 @@ def mbes_attrs():
     """Create the mbes attributes"""
     attrs = [
         tiledb.Attr(
-            "depth", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
+            "Z", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
         ),
         tiledb.Attr(
             "timestamp", dtype="datetime64[ns]", filters=[tiledb.ZstdFilter(level=16)]
-        ),
+        ),  # PDAL doesn't handle native datetimes. if requiring PDAL use numpy.int64
         tiledb.Attr(
             "across_track", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
         ),
