@@ -37,12 +37,12 @@ def mbes_domain(tri=False):
     return domain
 
 
-def mbes_attrs(columns=None):
+def mbes_attrs(required_attributes=None):
     """Create the mbes attributes"""
-    if columns is None:
-        columns = []
+    if required_attributes is None:
+        required_attributes = []
 
-    attrs = [
+    attribs = [
         tiledb.Attr(
             "Z", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
         ),
@@ -140,15 +140,15 @@ def mbes_attrs(columns=None):
         ),
     ]
 
-    attributes = [at for at in attrs if at.name in columns]
+    attributes = [at for at in attribs if at.name in required_attributes]
 
     return attributes
 
 
-def mbes_schema():
+def mbes_schema(required_attributes):
     """Create the tiledb schema"""
     domain = mbes_domain(False)  # only 2 dims for the project
-    attributes = mbes_attrs()
+    attributes = mbes_attrs(required_attributes)
 
     schema = tiledb.ArraySchema(
         domain=domain,
@@ -163,9 +163,9 @@ def mbes_schema():
     return schema
 
 
-def create_mbes_array(array_uri, ctx=None):
+def create_mbes_array(array_uri, required_attributes, ctx=None):
     """Create the TileDB array."""
-    schema = mbes_schema()
+    schema = mbes_schema(required_attributes)
 
     with tiledb.scope_ctx(ctx):
         tiledb.Array.create(array_uri, schema)
