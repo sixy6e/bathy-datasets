@@ -37,8 +37,11 @@ def mbes_domain(tri=False):
     return domain
 
 
-def mbes_attrs():
+def mbes_attrs(columns=None):
     """Create the mbes attributes"""
+    if columns is None:
+        columns = []
+
     attrs = [
         tiledb.Attr(
             "Z", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
@@ -137,7 +140,9 @@ def mbes_attrs():
         ),
     ]
 
-    return attrs
+    attributes = [at for at in attrs if at.name in columns]
+
+    return attributes
 
 
 def mbes_schema():
