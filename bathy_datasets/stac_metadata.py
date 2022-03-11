@@ -298,7 +298,7 @@ def prepare(
         pystac.Link(rel="self", media_type=pystac.MediaType.JSON, target=stac_md_uri)
     )
 
-    stac_metadata = item.to_dict()
+    stac_metadata_dict = item.to_dict()
 
     with fs.open(stac_md_uri, "w") as src:
-        json.dump(stac_metadata, src, indent=4, cls=Encoder)
+        json.dump(stac_metadata_dict, src, indent=4, cls=Encoder)
