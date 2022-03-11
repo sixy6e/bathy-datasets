@@ -178,7 +178,7 @@ def prepare(
     secret_key: str,
     start_end_datetimes: List[datetime],
     outdir_uri: str,
-) -> None:
+) -> Dict[str, Any]:
     """
     Prepare a STAC item metadata document.
     """
@@ -312,3 +312,5 @@ def prepare(
         description=asb_spreadsheet_metatadata["survey_general"]["abstract"],  # Optional 
         access_credentials_name="AusSeabedGMRT-PL019"
     )
+
+    return stac_metadata_dict
