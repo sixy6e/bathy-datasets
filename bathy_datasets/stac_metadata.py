@@ -21,6 +21,7 @@ from pystac.extensions.pointcloud import (
 from pystac.extensions.scientific import ScientificExtension
 import s3fs
 import tiledb
+import tiledb.cloud
 
 
 class Encoder(json.JSONEncoder):
@@ -286,10 +287,11 @@ def prepare(
         access_key,
         secret_key,
     )
+    array_name = Path(new_array_uri).stem
 
     stac_md_uri = outdir_uri + f"{uid}_stac-metadata.geojson"
 
-    item.add_asset("bathymetry_data", pystac.Asset(href=array_uri, roles=["data"]))
+    item.add_asset("bathymetry_data", pystac.Asset(href=new_array_uri, roles=["data"]))
     item.add_asset(
         "data_footprint", pystac.Asset(href=new_coverage_uri, roles=["data"])
     )
@@ -302,3 +304,11 @@ def prepare(
 
     with fs.open(stac_md_uri, "w") as src:
         json.dump(stac_metadata_dict, src, indent=4, cls=Encoder)
+
+    tiledb.cloud.register_array(
+        uri=new_array_uri,
+        namespace="AusSeabed", # Optional, you may register it under your username, or one of your organizations
+        array_name=array_name,
+        description=asb_spreadsheet_metatadata["survey_general"]["abstract"],  # Optional 
+        access_credentials_name="AusSeabedGMRT-PL019"
+    )
