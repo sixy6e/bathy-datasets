@@ -199,9 +199,9 @@ def prepare(
     created = datetime.now(timezone.utc)
 
     bounding_box = [
-        stats_metadata["X"]["miniumum"],
-        stats_metadata["Y"]["miniumum"],
-        stats_metadata["Z"]["miniumum"],
+        stats_metadata["X"]["minimum"],
+        stats_metadata["Y"]["minimum"],
+        stats_metadata["Z"]["minimum"],
         stats_metadata["X"]["maximum"],
         stats_metadata["Y"]["maximum"],
         stats_metadata["Z"]["maximum"],
