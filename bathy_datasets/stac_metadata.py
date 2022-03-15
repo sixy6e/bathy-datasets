@@ -85,7 +85,7 @@ def create_pdal_schema(
             {
                 "name": dim.name,
                 "size": dim.dtype.itemsize,
-                "type": dtype_mapper[dim.dtype.kind],
+                "type": dtype_mapper.get(dim.dtype.kind, "other"),
             }
         )
 
@@ -94,7 +94,7 @@ def create_pdal_schema(
             {
                 "name": attrib.name,
                 "size": attrib.dtype.itemsize,
-                "type": dtype_mapper[attrib.dtype.kind],
+                "type": dtype_mapper.get(attrib.dtype.kind, "other"),
             }
         )
 
