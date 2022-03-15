@@ -181,6 +181,7 @@ def prepare(
     secret_key: str,
     start_end_datetimes: List[datetime],
     outdir_uri: str,
+    stac_doc_out_uri: str,
 ) -> Dict[str, Any]:
     """
     Prepare a STAC item metadata document.
@@ -292,7 +293,7 @@ def prepare(
     # )
     # array_name = Path(new_array_uri).stem
 
-    stac_md_uri = outdir_uri + f"{uid}_stac-metadata.geojson"
+    # stac_md_uri = outdir_uri + f"ga_ausseabed_{uid}_stac-metadata.geojson"
 
     item.add_asset("bathymetry_data", pystac.Asset(href=array_uri, roles=["data"]))
     item.add_asset(
@@ -302,12 +303,12 @@ def prepare(
         "sounding_density", pystac.Asset(href=cells_vector_uri, roles=["data"])
     )
     item.add_link(
-        pystac.Link(rel="self", media_type=pystac.MediaType.JSON, target=stac_md_uri)
+        pystac.Link(rel="self", media_type=pystac.MediaType.JSON, target=stac_doc_out_uri)
     )
 
     stac_metadata_dict = item.to_dict()
 
-    with fs.open(stac_md_uri, "w") as src:
+    with fs.open(stac_doc_out_uri, "w") as src:
         json.dump(stac_metadata_dict, src, indent=4, cls=Encoder)
 
     # tiledb.cloud.register_array(
