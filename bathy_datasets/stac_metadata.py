@@ -145,6 +145,8 @@ def move_data(
 ):
     """
     Placeholder for moving data. Nothing fancy.
+    Not using until more testing is done regarding tiledb.move and
+    tiledb.consolidate. Those routines seem to take a while to run.
     """
     ctx = tiledb_context(access_key, secret_key)
     fs = s3fs.S3FileSystem(key=access_key, secret=secret_key, use_listings_cache=False)
@@ -168,6 +170,7 @@ def move_data(
 
 
 def prepare(
+    uid: uuid.UUID,
     sonar_metadata: Dict[str, Any],
     stats_metadata: Dict[str, Any],
     asb_spreadsheet_metatadata: Dict[str, Any],
@@ -225,7 +228,7 @@ def prepare(
     # as the naming is so disparate between the providers
     # we could rename the data files, and re-register the tiledb array as
     # it is better to have it registered to make of of UDFArray funcs
-    uid = uuid.uuid4()
+    # uid = uuid.uuid4()
     item = pystac.Item(
         id=str(uid),
         datetime=start_end_datetimes[1],
@@ -278,24 +281,26 @@ def prepare(
     )
 
     # moving data to new locations
-    new_array_uri, new_coverage_uri, new_cells_uri = move_data(
-        uid,
-        array_uri,
-        coverage_vector_uri,
-        cells_vector_uri,
-        outdir_uri,
-        access_key,
-        secret_key,
-    )
-    array_name = Path(new_array_uri).stem
+    # new_array_uri, new_coverage_uri, new_cells_uri = move_data(
+    #     uid,
+    #     array_uri,
+    #     coverage_vector_uri,
+    #     cells_vector_uri,
+    #     outdir_uri,
+    #     access_key,
+    #     secret_key,
+    # )
+    # array_name = Path(new_array_uri).stem
 
     stac_md_uri = outdir_uri + f"{uid}_stac-metadata.geojson"
 
-    item.add_asset("bathymetry_data", pystac.Asset(href=new_array_uri, roles=["data"]))
+    item.add_asset("bathymetry_data", pystac.Asset(href=array_uri, roles=["data"]))
     item.add_asset(
-        "data_footprint", pystac.Asset(href=new_coverage_uri, roles=["data"])
+        "data_footprint", pystac.Asset(href=coverage_vector_uri, roles=["data"])
     )
-    item.add_asset("sounding_density", pystac.Asset(href=new_cells_uri, roles=["data"]))
+    item.add_asset(
+        "sounding_density", pystac.Asset(href=cells_vector_uri, roles=["data"])
+    )
     item.add_link(
         pystac.Link(rel="self", media_type=pystac.MediaType.JSON, target=stac_md_uri)
     )
@@ -305,12 +310,12 @@ def prepare(
     with fs.open(stac_md_uri, "w") as src:
         json.dump(stac_metadata_dict, src, indent=4, cls=Encoder)
 
-    tiledb.cloud.register_array(
-        uri=new_array_uri,
-        namespace="AusSeabed", # Optional, you may register it under your username, or one of your organizations
-        array_name=array_name,
-        description=asb_spreadsheet_metatadata["survey_general"]["abstract"],  # Optional 
-        access_credentials_name="AusSeabedGMRT-PL019"
-    )
+    # tiledb.cloud.register_array(
+    #     uri=new_array_uri,
+    #     namespace="AusSeabed", # Optional, you may register it under your username, or one of your organizations
+    #     array_name=array_name,
+    #     description=asb_spreadsheet_metatadata["survey_general"]["abstract"],  # Optional
+    #     access_credentials_name="AusSeabedGMRT-PL019"
+    # )
 
     return stac_metadata_dict
