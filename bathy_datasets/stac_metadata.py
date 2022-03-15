@@ -157,7 +157,7 @@ def move_data(
     # cell data file
     pth = Path(urllib.parse.urlparse(cells_vector_uri).path)
     new_cell_uri = outdir_uri + f"{uid}_{pth.name}"
-    fs.move(coverage_vector_uri, new_cell_uri)
+    fs.move(cells_vector_uri, new_cell_uri)
 
     # tiledb array (and consolidate fragments)
     new_array_uri = outdir_uri + f"{uid}_bathymetry.tiledb"
