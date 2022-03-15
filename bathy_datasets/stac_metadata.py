@@ -218,7 +218,7 @@ def prepare(
 
     schema = create_pdal_schema(array_uri, access_key, secret_key)
 
-    geometry = data_geometry(cells_vector_uri, access_key, secret_key)
+    geometry = data_geometry(coverage_vector_uri, access_key, secret_key)
 
     # in regards to the uid, assiging within here is better than passing one through
     # for the project the uid will form part of the name (quick, easy, consistent)
