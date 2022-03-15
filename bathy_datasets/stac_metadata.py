@@ -245,7 +245,7 @@ def prepare(
     item.common_metadata.end_datetime = start_end_datetimes[1]
     item.common_metadata.created = created
     item.common_metadata.instruments = [
-        asb_spreadsheet_metatadata["bathy_technical"]["sensor_type"],
+        asb_spreadsheet_metatadata["bathymetry_technical"]["sensor_type"],
     ]
     item.common_metadata.providers = [
         pystac.Provider(
