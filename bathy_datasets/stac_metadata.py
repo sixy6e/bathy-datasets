@@ -270,7 +270,7 @@ def prepare(
     proj_ext.apply(epsg=int(crs_dict["horizontal_datum"][5:]))  # "epsg:..."
 
     pc_ext.apply(
-        count=stats_md[list(stats_md.keys())[0]]["count"],
+        count=stats_md["Z"]["count"],
         type=PhenomenologyType.SONAR,
         encoding="TileDB",
         schemas=[Schema(properties=sch) for sch in schema],
