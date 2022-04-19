@@ -156,7 +156,7 @@ def mbes_schema(required_attributes):
         attrs=attributes,
         cell_order="hilbert",
         tile_order="row-major",
-        capacity=1_000_000,
+        capacity=100_000,
         allows_duplicates=True,
     )
 
