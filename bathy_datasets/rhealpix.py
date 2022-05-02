@@ -169,6 +169,73 @@ def _unpack_res_code(code: str):
 
 
 @jit(nopython=True)
+def _ellipsoidal_shape(region_code: str, ncodes: int, nside: int) -> int:
+    """
+    Each cell is one of the following shapes:
+        * quad
+        * cap
+        * dart
+        * skew quad
+
+    One of the requirements to determining the North-West vertex.
+    The UL in projected rhealpix, may not be the UL in geographics.
+
+    Using the following codes/enum as ID's:
+        * 0 -> quad
+        * 1 -> cap
+        * 2 -> dart
+        * 3 -> skew quad
+
+    Keeping this function specific to the nside=3 case. This can be
+    expanded at a later date when time permits.
+    """
+    # TODO; might need to consider turning this into a func that can operate on an array
+    #       reason being that when creating geoms this is the place we can remove
+    #       vertices from darts
+    # quad cells (equatorial)
+    quad_set = set(["O", "P", "Q", "R"])
+    if region_code[0] in quad_set:
+        return 0  # quad
+
+    # cap cells
+    cap = True
+    # if nside % 2 != 1:  ignore for nside=3
+    #     cap = False
+    for n in region_code[1:]:
+        # not going to bother converting string to int
+        # if we expand the development of this codebase, then we convert to int's
+        if n != "4":  # specific case for nside=3
+            cap = False
+            break
+
+    if cap:
+        return 0
+
+    # dart
+    dart = True
+    dart_set = set(["0", "2", "4", "6", "8"])
+    for n in region_code[1:]:
+        if n not in dart_set:
+            dart = False
+            break
+
+    if dart:
+        return 2
+
+    return 3  # skew quad
+
+
+@jit(nopython=True)
+def _nw_vertex(vertices):
+    """
+    Need to cater for rearranging the vertices, as depending on the cell
+    shape, the UL projected vertex, may not be the UL in the geographics
+    (ellipsoidal) space.  In general, the UL vertex may not be the NW
+    vertex in either case.
+    """
+
+
+@jit(nopython=True)
 def _rhealpix_code(
     prj_x: numpy.ndarray,
     prj_y: numpy.ndarray,
