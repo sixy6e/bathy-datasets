@@ -227,18 +227,72 @@ def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -
 
 
 @jit(nopython=True)
-def _nw_vertex(vertices):
+def _nw_vertex(vertices, cell_shape, s0_code, north_square, south_square, trim_dart):
     """
     Need to cater for rearranging the vertices, as depending on the cell
     shape, the UL projected vertex, may not be the UL in the geographics
     (ellipsoidal) space.  In general, the UL vertex may not be the NW
     vertex in either case.
     """
+    if cell_shape <= 1:
+        return
+    elif cell_shape == 3:  # skew quad
+        # calculate the nucleous which is simply the cell centre in planar
+        # determine the NW vertex based on which HEALPix triangle the cell is in
+        width = vertices[0, 1] - vertices[0, 0]
+        nucleus = (vertices[0, 0] + width / 2.0, vertices[1, 0] + width / 2.0)
+        xpt = nucleus[0]
+
+        if s0_code not in set(["N", "S"]):  # equatorial (O, P, Q, R)
+            triangle_number = None
+
+        if xpt < -numpy.pi / 2:
+            triangle_number = 0
+        elif xpt >= -numpy.pi / 2 and xpt < 0:
+            triangle_number = 1
+        elif xpt >= 0 and xpt < numpy.pi / 2:
+            triangle_number = 2
+        else:
+            triangle_number = 3
+
+        if s0_code == "N":
+            idx = (triangle_number - north_square) % 4
+            idx = -idx
+        else:
+            idx = (triangle_number - south_square) % 4
+    else:  # dart
+        # find most poleward value
+        idx = numpy.argmax(numpy.abs(vertices[1]))
+
+        if s0_code == "S":
+            idx = (idx + 1) % 4
+
+    # X
+    verts = list(vertices[0][idx:]) + list(vertices[0][:idx])
+    vertices[0] = verts
+
+    # Y
+    verts = list(vertices[1][idx:]) + list(vertices[1][:idx])
+    vertices[1] = verts
+
+    if trim_dart and cell_shape == 2:
+        # nullify
+        if s0_code == "N":
+            vertices[0, 2] = numpy.nan
+            vertices[1, 2] = numpy.nan
+        else:
+            vertices[0, 1] = numpy.nan
+            vertices[1, 1] = numpy.nan
 
 
 @jit(nopython=True)
 def _update_vertices(
-    vertices: numpy.ndarray, region_codes: numpy.ndarray, ncodes: int, trim_dart: bool
+    vertices: numpy.ndarray,
+    region_codes: numpy.ndarray,
+    ncodes: int,
+    north_square: int,
+    south_square: int,
+    trim_dart: bool,
 ):
     """
     Update the order of the vertices to account for the UL vertex in
@@ -249,13 +303,14 @@ def _update_vertices(
         region_code = region_codes[i]
         cell_shape = _ellipsoidal_shape(region_code)
 
-        if cell_shape == 0 or cell_shape == 1:  # quad or cap
-            # NW vertex is the UL vertex
-            continue
-
-        elif cell_shape == 3:  # skew quad
-        else:  # dart
-            
+        _nw_vertex(
+            vertices[:, :, i],
+            cell_shape,
+            region_code[0],
+            north_square,
+            south_square,
+            trim_dart,
+        )
 
 
 @jit(nopython=True)
@@ -527,7 +582,14 @@ def rhealpix_geo_boundary(
     )
 
     if not planar:
-        _ = _update_vertices(boundary, region_codes, ncodes, trim_dart)
+        _ = _update_vertices(
+            boundary,
+            region_codes,
+            ncodes,
+            rhealpix.north_square,
+            rhealpix.south_square,
+            trim_dart,
+        )
 
         # this next part requires contiguous blocks for inplace calcs
         _ = transformer.transform(
@@ -544,7 +606,7 @@ def rhealpix_geo_boundary(
     if shapely_geometries:
         polygons = []
         for i in range(ncodes):
-            # remove and vertices of a dart that have been nullified
+            # remove any vertices of a dart that have been nullified
             # nullified vertices will only occur if planar=False
             vertices = [v for v in boundary[i] if numpy.isfinite(v[0])]
             polygons.append(Polygon(vertices))
