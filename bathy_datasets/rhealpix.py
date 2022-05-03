@@ -270,7 +270,7 @@ def _rhealpix_code(
                 num //= nside
                 idx += 1
 
-        row_ids = suid_row[:idx][::-1]
+        row_ids = suid_row[:resolution][::-1]
 
         # base conversion
         num = abs(int(dx * nside**resolution))
