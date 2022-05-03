@@ -29,6 +29,7 @@ import numpy
 from numba import jit
 from pyproj import CRS, Transformer
 import attr
+
 # from rhealpixdggs import dggs, ellipsoids  # possibly bring back for production
 from shapely.geometry import Polygon
 
@@ -169,7 +170,7 @@ def _unpack_res_code(code: str):
 
 
 @jit(nopython=True)
-def _ellipsoidal_shape(region_code: str, ncodes: int, nside: int) -> int:
+def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -> int:
     """
     Each cell is one of the following shapes:
         * quad
@@ -233,6 +234,28 @@ def _nw_vertex(vertices):
     (ellipsoidal) space.  In general, the UL vertex may not be the NW
     vertex in either case.
     """
+
+
+@jit(nopython=True)
+def _update_vertices(
+    vertices: numpy.ndarray, region_codes: numpy.ndarray, ncodes: int, trim_dart: bool
+):
+    """
+    Update the order of the vertices to account for the UL vertex in
+    planar space is not necessarily the NW vertex in geographics
+    (ellipsoidal) space.
+    """
+    for i in range(ncodes):
+        region_code = region_codes[i]
+        cell_shape = _ellipsoidal_shape(region_code)
+
+        if cell_shape == 0 or cell_shape == 1:  # quad or cap
+            # NW vertex is the UL vertex
+            continue
+
+        elif cell_shape == 3:  # skew quad
+        else:  # dart
+            
 
 
 @jit(nopython=True)
@@ -449,6 +472,8 @@ def rhealpix_geo_boundary(
     shapely_geometries: bool = True,
     round_coords: bool = True,
     decimals: int = 11,
+    planar: bool = False,
+    trim_dart: bool = True,
 ):
     """
     Calculate the RHEALPIX boundary as projected coordinates.
@@ -501,10 +526,13 @@ def rhealpix_geo_boundary(
         authalic_radius,
     )
 
-    # this next part requires contiguous blocks for inplace calcs
-    _ = transformer.transform(
-        boundary[0, :, :].ravel(), boundary[1, :, :].ravel(), inplace=True
-    )
+    if not planar:
+        _ = _update_vertices(boundary, region_codes, ncodes, trim_dart)
+
+        # this next part requires contiguous blocks for inplace calcs
+        _ = transformer.transform(
+            boundary[0, :, :].ravel(), boundary[1, :, :].ravel(), inplace=True
+        )
 
     # rounding the coordinates as a way of handling differnces in floating point calcs
     # the idea behind this is to enforce (hopefully) neat cell edges
@@ -513,11 +541,14 @@ def rhealpix_geo_boundary(
 
     boundary = boundary.transpose(2, 1, 0)
 
-    polygons = []
-    for i in range(ncodes):
-        polygons.append(Polygon(boundary[i]))
-
     if shapely_geometries:
+        polygons = []
+        for i in range(ncodes):
+            # remove and vertices of a dart that have been nullified
+            # nullified vertices will only occur if planar=False
+            vertices = [v for v in boundary[i] if numpy.isfinite(v[0])]
+            polygons.append(Polygon(vertices))
+
         return polygons
 
     return boundary
