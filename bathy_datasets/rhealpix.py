@@ -351,7 +351,7 @@ def _rhealpix_code(
                 num //= nside
                 idx += 1
 
-        col_ids = suid_col[:idx][::-1]
+        col_ids = suid_col[:resolution][::-1]
 
         res_codes = []
         for res in range(resolution):
