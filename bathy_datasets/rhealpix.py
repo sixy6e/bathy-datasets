@@ -29,6 +29,7 @@ import numpy
 from numba import jit
 from pyproj import CRS, Transformer
 import attr
+
 # from rhealpixdggs import dggs, ellipsoids  # possibly bring back for production
 from shapely.geometry import Polygon
 
@@ -166,6 +167,174 @@ def _unpack_res_code(code: str):
     for i in code[1:]:
         unpacked.append(str_to_int(i))
     return unpacked
+
+
+@jit(nopython=True)
+def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -> int:
+    """
+    Each cell is one of the following shapes:
+        * quad
+        * cap
+        * dart
+        * skew quad
+
+    One of the requirements to determining the North-West vertex.
+    The UL in projected rhealpix, may not be the UL in geographics.
+
+    Using the following codes/enum as ID's:
+        * 0 -> quad
+        * 1 -> cap
+        * 2 -> dart
+        * 3 -> skew quad
+
+    Keeping this function specific to the nside=3 case. This can be
+    expanded at a later date when time permits.
+    """
+    # TODO; might need to consider turning this into a func that can operate on an array
+    #       reason being that when creating geoms this is the place we can remove
+    #       vertices from darts
+
+    # quad cells (equatorial)
+    quad_set = set(["O", "P", "Q", "R"])
+    if region_code[0] in quad_set:
+        return 0  # quad
+
+    # cap cells
+    cap = True
+    # if nside % 2 != 1:  ignore for nside=3
+    #     cap = False
+    for n in region_code[1:]:
+        # not going to bother converting string to int
+        # if we expand the development of this codebase, then we convert to int's
+        if n != "4":  # specific case for nside=3
+            cap = False
+            break
+
+    if cap:
+        return 0
+
+    # dart
+    dart = True
+    dart_set = set(["0", "2", "4", "6", "8"])
+    for n in region_code[1:]:
+        if n not in dart_set:
+            dart = False
+            break
+
+    if dart:
+        return 2
+
+    return 3  # skew quad
+
+
+@jit(nopython=True)
+def _nw_vertex(vertices, cell_shape, s0_code, north_square, south_square, trim_dart, width, authalic_radius):
+    """
+    Need to cater for rearranging the vertices, as depending on the cell
+    shape, the UL projected vertex, may not be the UL in the geographics
+    (ellipsoidal) space.  In general, the UL vertex may not be the NW
+    vertex in either case.
+    """
+    if cell_shape <= 1:
+        return
+    elif cell_shape == 3:  # skew quad
+        # calculate the nucleous which is simply the cell centre in planar
+        # determine the NW vertex based on which HEALPix triangle the cell is in
+        nucleus = (vertices[0, 0] + width / 2.0, vertices[1, 0] - width / 2.0)
+        xpt = nucleus[0] / authalic_radius  # scale down
+        ypt = nucleus[1] / authalic_radius  # scale down
+
+        if s0_code not in set(["N", "S"]):  # equatorial (O, P, Q, R)
+            triangle_number = None
+
+        eps = 1e-15
+
+        if s0_code == "N":
+            l1 = xpt - (-3 * numpy.pi / 4 + (north_square - 1) * numpy.pi / 2)
+            l2 = -xpt + (-3 * numpy.pi / 4 + (north_square + 1) * numpy.pi / 2)
+            if ypt < l1 - eps and ypt >= l2 - eps:
+                triangle_number = (north_square + 1) % 4
+            elif ypt >= l1 - eps and ypt > l2 + eps:
+                triangle_number = (north_square + 2) % 4
+            elif ypt > l1 + eps and ypt <= l2 + eps:
+                triangle_number = (north_square + 3) % 4
+            else:
+                triangle_number = north_square
+        else:
+            l1 = xpt - (-3 * numpy.pi / 4 + (south_square + 1) * numpy.pi / 2)
+            l2 = -xpt + (-3 * numpy.pi / 4 + (south_square - 1) * numpy.pi / 2)
+            if ypt <= l1 + eps and ypt > l2 + eps:
+                triangle_number = (south_square + 1) % 4
+            elif ypt < l1 - eps and ypt <= l2 + eps:
+                triangle_number = (south_square + 2) % 4
+            elif ypt >=  l1 - eps and ypt < l2 - eps:
+                triangle_number = (south_square + 3) % 4
+            else:
+                triangle_number = south_square
+
+        if s0_code == "N":
+            idx = (triangle_number - north_square) % 4
+            idx = -idx
+        else:
+            idx = (triangle_number - south_square) % 4
+    else:  # dart
+        # find most poleward value
+        idx = numpy.argmax(numpy.abs(vertices[1]))
+
+        if s0_code == "S":
+            idx = (idx + 1) % 4
+
+    # X
+    verts = list(vertices[0][idx:]) + list(vertices[0][:idx])
+    vertices[0] = verts
+
+    # Y
+    verts = list(vertices[1][idx:]) + list(vertices[1][:idx])
+    vertices[1] = verts
+
+    if trim_dart and cell_shape == 2:
+        # nullify
+        if s0_code == "N":
+            vertices[0, 2] = numpy.nan
+            vertices[1, 2] = numpy.nan
+        else:
+            vertices[0, 1] = numpy.nan
+            vertices[1, 1] = numpy.nan
+
+
+@jit(nopython=True)
+def _update_vertices(
+    vertices: numpy.ndarray,
+    region_codes: numpy.ndarray,
+    ncodes: int,
+    north_square: int,
+    south_square: int,
+    trim_dart: bool,
+    authalic_radius: float,
+    nside: int,
+):
+    """
+    Update the order of the vertices to account for the UL vertex in
+    planar space is not necessarily the NW vertex in geographics
+    (ellipsoidal) space.
+    """
+    float_nside = float(nside)
+    for i in range(ncodes):
+        region_code = str(region_codes[i])
+        cell_shape = _ellipsoidal_shape(region_code)
+        resolution = len(region_code) - 1
+        width = authalic_radius * (numpy.pi / 2) * float_nside ** (-resolution)
+
+        _nw_vertex(
+            vertices[:, :, i],
+            cell_shape,
+            region_code[0],
+            north_square,
+            south_square,
+            trim_dart,
+            width,
+            authalic_radius,
+        )
 
 
 @jit(nopython=True)
@@ -382,6 +551,8 @@ def rhealpix_geo_boundary(
     shapely_geometries: bool = True,
     round_coords: bool = True,
     decimals: int = 11,
+    planar: bool = False,
+    trim_dart: bool = True,
 ):
     """
     Calculate the RHEALPIX boundary as projected coordinates.
@@ -434,10 +605,22 @@ def rhealpix_geo_boundary(
         authalic_radius,
     )
 
-    # this next part requires contiguous blocks for inplace calcs
-    _ = transformer.transform(
-        boundary[0, :, :].ravel(), boundary[1, :, :].ravel(), inplace=True
-    )
+    if not planar:
+        _ = _update_vertices(
+            boundary,
+            region_codes,
+            ncodes,
+            rhealpix.north_square,
+            rhealpix.south_square,
+            trim_dart,
+            authalic_radius,
+            nside,
+        )
+
+        # this next part requires contiguous blocks for inplace calcs
+        _ = transformer.transform(
+            boundary[0, :, :].ravel(), boundary[1, :, :].ravel(), inplace=True
+        )
 
     # rounding the coordinates as a way of handling differnces in floating point calcs
     # the idea behind this is to enforce (hopefully) neat cell edges
@@ -446,11 +629,14 @@ def rhealpix_geo_boundary(
 
     boundary = boundary.transpose(2, 1, 0)
 
-    polygons = []
-    for i in range(ncodes):
-        polygons.append(Polygon(boundary[i]))
-
     if shapely_geometries:
+        polygons = []
+        for i in range(ncodes):
+            # remove any vertices of a dart that have been nullified
+            # nullified vertices will only occur if planar=False
+            vertices = [v for v in boundary[i] if numpy.isfinite(v[0])]
+            polygons.append(Polygon(vertices))
+
         return polygons
 
     return boundary
