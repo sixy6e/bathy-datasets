@@ -193,6 +193,7 @@ def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -
     # TODO; might need to consider turning this into a func that can operate on an array
     #       reason being that when creating geoms this is the place we can remove
     #       vertices from darts
+
     # quad cells (equatorial)
     quad_set = set(["O", "P", "Q", "R"])
     if region_code[0] in quad_set:
@@ -227,7 +228,7 @@ def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -
 
 
 @jit(nopython=True)
-def _nw_vertex(vertices, cell_shape, s0_code, north_square, south_square, trim_dart):
+def _nw_vertex(vertices, cell_shape, s0_code, north_square, south_square, trim_dart, width, authalic_radius):
     """
     Need to cater for rearranging the vertices, as depending on the cell
     shape, the UL projected vertex, may not be the UL in the geographics
@@ -239,21 +240,37 @@ def _nw_vertex(vertices, cell_shape, s0_code, north_square, south_square, trim_d
     elif cell_shape == 3:  # skew quad
         # calculate the nucleous which is simply the cell centre in planar
         # determine the NW vertex based on which HEALPix triangle the cell is in
-        width = vertices[0, 1] - vertices[0, 0]
-        nucleus = (vertices[0, 0] + width / 2.0, vertices[1, 0] + width / 2.0)
-        xpt = nucleus[0]
+        nucleus = (vertices[0, 0] + width / 2.0, vertices[1, 0] - width / 2.0)
+        xpt = nucleus[0] / authalic_radius  # scale down
+        ypt = nucleus[1] / authalic_radius  # scale down
 
         if s0_code not in set(["N", "S"]):  # equatorial (O, P, Q, R)
             triangle_number = None
 
-        if xpt < -numpy.pi / 2:
-            triangle_number = 0
-        elif xpt >= -numpy.pi / 2 and xpt < 0:
-            triangle_number = 1
-        elif xpt >= 0 and xpt < numpy.pi / 2:
-            triangle_number = 2
+        eps = 1e-15
+
+        if s0_code == "N":
+            l1 = xpt - (-3 * numpy.pi / 4 + (north_square - 1) * numpy.pi / 2)
+            l2 = -xpt + (-3 * numpy.pi / 4 + (north_square + 1) * numpy.pi / 2)
+            if ypt < l1 - eps and ypt >= l2 - eps:
+                triangle_number = (north_square + 1) % 4
+            elif ypt >= l1 - eps and ypt > l2 + eps:
+                triangle_number = (north_square + 2) % 4
+            elif ypt > l1 + eps and ypt <= l2 + eps:
+                triangle_number = (north_square + 3) % 4
+            else:
+                triangle_number = north_square
         else:
-            triangle_number = 3
+            l1 = xpt - (-3 * numpy.pi / 4 + (south_square + 1) * numpy.pi / 2)
+            l2 = -xpt + (-3 * numpy.pi / 4 + (south_square - 1) * numpy.pi / 2)
+            if ypt <= l1 + eps and ypt > l2 + eps:
+                triangle_number = (south_square + 1) % 4
+            elif ypt < l1 - eps and ypt <= l2 + eps:
+                triangle_number = (south_square + 2) % 4
+            elif ypt >=  l1 - eps and ypt < l2 - eps:
+                triangle_number = (south_square + 3) % 4
+            else:
+                triangle_number = south_square
 
         if s0_code == "N":
             idx = (triangle_number - north_square) % 4
@@ -293,15 +310,20 @@ def _update_vertices(
     north_square: int,
     south_square: int,
     trim_dart: bool,
+    authalic_radius: float,
+    nside: int,
 ):
     """
     Update the order of the vertices to account for the UL vertex in
     planar space is not necessarily the NW vertex in geographics
     (ellipsoidal) space.
     """
+    float_nside = float(nside)
     for i in range(ncodes):
-        region_code = region_codes[i]
+        region_code = str(region_codes[i])
         cell_shape = _ellipsoidal_shape(region_code)
+        resolution = len(region_code) - 1
+        width = authalic_radius * (numpy.pi / 2) * float_nside ** (-resolution)
 
         _nw_vertex(
             vertices[:, :, i],
@@ -310,6 +332,8 @@ def _update_vertices(
             north_square,
             south_square,
             trim_dart,
+            width,
+            authalic_radius,
         )
 
 
@@ -589,6 +613,8 @@ def rhealpix_geo_boundary(
             rhealpix.north_square,
             rhealpix.south_square,
             trim_dart,
+            authalic_radius,
+            nside,
         )
 
         # this next part requires contiguous blocks for inplace calcs
