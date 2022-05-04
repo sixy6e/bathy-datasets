@@ -195,7 +195,8 @@ def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -
     #       vertices from darts
 
     # quad cells (equatorial)
-    quad_set = set(["O", "P", "Q", "R"])
+    # quad_set = set(["O", "P", "Q", "R"])
+    quad_set = ["O", "P", "Q", "R"]  # issue with numba < 0.56
     if region_code[0] in quad_set:
         return 0  # quad
 
@@ -215,7 +216,8 @@ def _ellipsoidal_shape(region_code: str) -> int:  # , ncodes: int, nside: int) -
 
     # dart
     dart = True
-    dart_set = set(["0", "2", "4", "6", "8"])
+    # dart_set = set(["0", "2", "4", "6", "8"])
+    dart_set = ["0", "2", "4", "6", "8"]  # issue with numba < 0.56
     for n in region_code[1:]:
         if n not in dart_set:
             dart = False
@@ -244,7 +246,8 @@ def _nw_vertex(vertices, cell_shape, s0_code, north_square, south_square, trim_d
         xpt = nucleus[0] / authalic_radius  # scale down
         ypt = nucleus[1] / authalic_radius  # scale down
 
-        if s0_code not in set(["N", "S"]):  # equatorial (O, P, Q, R)
+        # if s0_code not in set(["N", "S"]):  # equatorial (O, P, Q, R)
+        if s0_code not in ["N", "S"]:  # equatorial (O, P, Q, R)
             triangle_number = None
 
         eps = 1e-15
