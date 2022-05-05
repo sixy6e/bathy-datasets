@@ -464,6 +464,9 @@ def _rhealpix_code(
 
         region_codes.append(s0 + "".join([str(val) for val in res_codes]))
 
+        suid_row[:] = 0
+        suid_col[:] = 0
+
     return region_codes
 
 
