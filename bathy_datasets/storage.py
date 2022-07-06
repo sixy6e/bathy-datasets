@@ -2,7 +2,7 @@ import numpy
 import tiledb
 
 
-def mbes_domain(tri=False):
+def mbes_lonlat_domain(tri=False):
     """Set array domain."""
     index_filters = tiledb.FilterList([tiledb.ZstdFilter(level=16)])
 
@@ -37,15 +37,49 @@ def mbes_domain(tri=False):
     return domain
 
 
-def mbes_attrs(required_attributes=None):
+def ping_beam_domain(
+    ping_tile_size=10,
+    beam_tile_size=400,
+    ping_domain_upper=1_000_000_000,
+    beam_domain_upper=1_000_000_000,
+):
+    """Set the array domain using ping and beam numbers as the axes."""
+    ping_dim = tiledb.Dim(
+        "ping_number",
+        domain=(0, ping_domain_upper),
+        tile=ping_tile_size,
+        dtype=numpy.uint64,
+        filters=[
+            tiledb.PositiveDeltaFilter(),
+            tiledb.RleFilter(),
+            tiledb.ZstdFilter(level=16),
+        ],
+    )
+
+    beam_dim = tiledb.Dim(
+        "beam_number",
+        domain=(0, beam_domain_upper),
+        tile=beam_tile_size,
+        dtype=numpy.uint64,
+        filters=[
+            tiledb.ByteShuffleFilter(),
+            tiledb.RleFilter(),
+            tiledb.ZstdFilter(level=16),
+        ],
+    )
+
+    domain = tiledb.Domain(ping_dim, beam_dim)
+
+    return domain
+
+
+def mbes_attrs(required_attributes=None, include_xy=False):
     """Create the mbes attributes"""
     if required_attributes is None:
         required_attributes = []
 
     attribs = [
-        tiledb.Attr(
-            "Z", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]
-        ),
+        tiledb.Attr("Z", dtype=numpy.float32, filters=[tiledb.ZstdFilter(level=16)]),
         tiledb.Attr(
             "timestamp", dtype="datetime64[ns]", filters=[tiledb.ZstdFilter(level=16)]
         ),  # PDAL doesn't handle native datetimes. if requiring PDAL use numpy.int64
@@ -130,25 +164,38 @@ def mbes_attrs(required_attributes=None):
             filters=[tiledb.ZstdFilter(level=16)],
         ),
         tiledb.Attr(
-            "centre_beam", dtype=numpy.uint8, filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)]
+            "centre_beam",
+            dtype=numpy.uint8,
+            filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)],
         ),
         tiledb.Attr(
             "beam_number", dtype=numpy.uint16, filters=[tiledb.ZstdFilter(level=16)]
         ),
-        tiledb.Attr(
-            "region_code", dtype=str, filters=[tiledb.ZstdFilter(level=16)]
-        ),
+        tiledb.Attr("region_code", dtype=str, filters=[tiledb.ZstdFilter(level=16)]),
     ]
 
     attributes = [at for at in attribs if at.name in required_attributes]
 
+    if not include_xy:
+        x = tiledb.Attr("X", dtype=numpy.float64, filters=[tiledb.ZstdFilter(level=16)])
+        y = tiledb.Attr("Y", dtype=numpy.float64, filters=[tiledb.ZstdFilter(level=16)])
+        attributes.insert(0, y)
+        attributes.insert(0, x)
+
     return attributes
 
 
-def mbes_schema(required_attributes):
-    """Create the tiledb schema"""
-    domain = mbes_domain(False)  # only 2 dims for the project
-    attributes = mbes_attrs(required_attributes)
+def create_xy_schema(required_attributes):
+    """
+    An array schema using X & Y (lon/lat or projected x/y) as the
+    dimensional axes.
+    The schema is a sparse array, and duplicates are allowed as there is a
+    high chance for duplicates when combining all GSFs into a singular
+    array due to overlapping passes.
+    """
+    domain = mbes_lonlat_domain(False)  # only 2 dims for the GMRT project
+
+    attributes = mbes_attrs(required_attributes, include_xy=False)
 
     schema = tiledb.ArraySchema(
         domain=domain,
@@ -163,6 +210,35 @@ def mbes_schema(required_attributes):
     return schema
 
 
+def create_ping_beam_schema(
+    required_attributes,
+    ping_tile_size=10,
+    beam_tile_size=400,
+    ping_domain_upper=1_000_000_000,
+    beam_domain_upper=1_000_000_000,
+):
+    """
+    Create an array schema using ping and beam as the dimensional axes.
+    The ping and beam array schema is dense, just like a 2D grid, and
+    we're not allowing duplicates.
+    """
+    domain = ping_beam_domain(beam_tile_size)
+
+    attributes = mbes_attrs(required_attributes, include_xy=True)
+
+    schema = tiledb.ArraySchema(
+        domain=domain,
+        sparse=False,
+        attrs=attributes,
+        cell_order="row-major",
+        tile_order="row-major",
+        capacity=100_000,
+        allows_duplicates=False,
+    )
+
+    return schema
+
+
 def create_mbes_array(array_uri, required_attributes, ctx=None):
     """Create the TileDB array."""
     schema = mbes_schema(required_attributes)
@@ -172,7 +248,10 @@ def create_mbes_array(array_uri, required_attributes, ctx=None):
 
 
 def append_ping_dataframe(dataframe, array_uri, ctx=None):
-    """Append the ping dataframe read from a GSF file."""
+    """
+    Append the ping dataframe read from a GSF file.
+    Only to be used with sparse arrays.
+    """
     kwargs = {
         "mode": "append",
         "sparse": True,
