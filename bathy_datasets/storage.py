@@ -168,19 +168,25 @@ def mbes_attrs(required_attributes=None, include_xy=False):
             dtype=numpy.uint8,
             filters=[tiledb.RleFilter(), tiledb.ZstdFilter(level=16)],
         ),
-        tiledb.Attr(
-            "beam_number", dtype=numpy.uint16, filters=[tiledb.ZstdFilter(level=16)]
-        ),
         tiledb.Attr("region_code", dtype=str, filters=[tiledb.ZstdFilter(level=16)]),
     ]
 
     attributes = [at for at in attribs if at.name in required_attributes]
 
-    if not include_xy:
+    if include_xy:
         x = tiledb.Attr("X", dtype=numpy.float64, filters=[tiledb.ZstdFilter(level=16)])
         y = tiledb.Attr("Y", dtype=numpy.float64, filters=[tiledb.ZstdFilter(level=16)])
         attributes.insert(0, y)
         attributes.insert(0, x)
+    else:
+        ping_num = tiledb.Attr(
+            "ping_number", dtype=numpy.uint64, filters=[tiledb.ZstdFilter(level=16)]
+        )
+        beam_num = tiledb.Attr(
+            "beam_number", dtype=numpy.uint16, filters=[tiledb.ZstdFilter(level=16)]
+        )
+        attributes.insert(0, beam_num)
+        attributes.insert(0, ping_num)
 
     return attributes
 
@@ -222,7 +228,9 @@ def create_ping_beam_schema(
     The ping and beam array schema is dense, just like a 2D grid, and
     we're not allowing duplicates.
     """
-    domain = ping_beam_domain(beam_tile_size)
+    domain = ping_beam_domain(
+        ping_tile_size, beam_tile_size, ping_domain_upper, beam_domain_upper
+    )
 
     attributes = mbes_attrs(required_attributes, include_xy=True)
 
@@ -239,10 +247,8 @@ def create_ping_beam_schema(
     return schema
 
 
-def create_mbes_array(array_uri, required_attributes, ctx=None):
+def create_mbes_array(array_uri, schema, ctx=None):
     """Create the TileDB array."""
-    schema = mbes_schema(required_attributes)
-
     with tiledb.scope_ctx(ctx):
         tiledb.Array.create(array_uri, schema)
 
