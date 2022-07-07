@@ -43,7 +43,12 @@ def ping_beam_domain(
     ping_domain_upper=1_000_000_000,
     beam_domain_upper=1_000_000_000,
 ):
-    """Set the array domain using ping and beam numbers as the axes."""
+    """
+    Set the array domain using ping and beam numbers as the axes.
+    Ideally set the upper domain so that they match the number of elements,
+    eg 2179 pings = [0, 2178].
+    The beam tile size is ideally set to the number of beams in a ping.
+    """
     ping_dim = tiledb.Dim(
         "ping_number",
         domain=(0, ping_domain_upper),
@@ -227,6 +232,10 @@ def create_ping_beam_schema(
     Create an array schema using ping and beam as the dimensional axes.
     The ping and beam array schema is dense, just like a 2D grid, and
     we're not allowing duplicates.
+    A problem will occur when a beam is suddenly missing. eg all previous
+    pings have 100 beams, then all of a sudden we have only 98 beams.
+    We'll have isssues in writes as we're expecting to write a full block
+    based on the beam domain.
     """
     domain = ping_beam_domain(
         ping_tile_size, beam_tile_size, ping_domain_upper, beam_domain_upper
