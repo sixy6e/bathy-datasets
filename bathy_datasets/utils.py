@@ -390,6 +390,8 @@ class Encoder(json.JSONEncoder):
 def write_gsf_info(gsf_uri: str, vfs: tiledb.vfs.VFS) -> None:
     """
     Write the GSF file info (record types and counts) as a JSON document.
+    Also acts as a kind of file index to the GSF enabling specific records
+    to be read via a byte range request.
     """
     with vfs.open(gsf_uri) as stream:
         stream_length = stream._nbytes
