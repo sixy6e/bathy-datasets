@@ -425,7 +425,7 @@ def write_gsf_info(gsf_uri: str, vfs: tiledb.vfs.VFS) -> None:
         src.write(json_data)
 
 
-def write_ping_beam_dims_dataframe(dataframe: pandas.DataFrame, array_uri: str, tiledb_config: Dict[str, Any]):
+def write_ping_beam_dims_dataframe(dataframe: pandas.DataFrame, array_uri: str, tiledb_config: Dict[str, Any]) -> None:
     """
     Write the ping dataframe to a TileDB using a dense ping-beam dimensional
     axes.
