@@ -13,7 +13,7 @@ from numba import jit
 import pandas
 import tiledb
 
-from typing import Any, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from reap_gsf import reap
 
@@ -423,3 +423,22 @@ def write_gsf_info(gsf_uri: str, vfs: tiledb.vfs.VFS) -> None:
 
     with vfs.open(output_uri, "wb") as src:
         src.write(json_data)
+
+
+def write_ping_beam_dims_dataframe(dataframe: pandas.DataFrame, array_uri: str, tiledb_config: Dict[str, Any]):
+    """
+    Write the ping dataframe to a TileDB using a dense ping-beam dimensional
+    axes.
+    For this project, we've defined the arrays using ping-beam dimensional axes
+    to be dense arrays.
+    """
+    ctx = tiledb.Ctx(config=tiledb_config)
+
+    ping_start_idx = int(dataframe.ping_number.min())
+    ping_end_idx = int(dataframe.ping_number.max()) + 1
+
+    col_info = tiledb.dataframe_._get_column_infos(dataframe, None, None)
+    data_dict, _nanull = tiledb.dataframe_._df_to_np_arrays(dataframe, col_info, None)
+
+    with tiledb.open(array_uri, "w", ctx=ctx) as ds:
+        ds[ping_start_idx:ping_end_idx, :] = data_dict
