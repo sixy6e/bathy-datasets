@@ -15,7 +15,7 @@ import tiledb
 
 from typing import Any, Dict, List, Tuple, Union
 
-from reap_gsf import reap
+from reap_gsf import reap, data_model, enums
 
 
 def reduce_region_codes(region_codes: pandas.DataFrame) -> pandas.DataFrame:
@@ -205,6 +205,8 @@ def unpack_code(region_codes: numpy.ndarray, dataframe=True):
     """
     Unpacking an array of rHEALPix code identifiers into separate columns
     of a dataframe.
+    The intent of this funciton is to then use them as the dimensional
+    axes for a TileDB array.
     """
     res = len(region_codes[0])
     region_codes = region_codes.astype(f"<U{len(region_codes[0])}")
@@ -450,3 +452,23 @@ def write_ping_beam_dims_dataframe(
 
     with tiledb.open(array_uri, "w", ctx=ctx) as ds:
         ds[ping_start_idx:ping_end_idx, :] = data_dict
+
+
+def file_record_index(
+    gsf_info_uri: str, vfs: tiledb.vfs.VFS
+) -> List[data_model.FileRecordIndex]:
+    """
+    Populate a list with the FileRecordIndex's for the associated GSF file.
+    """
+    with vfs.open(gsf_info_uri) as src:
+        metadata = json.loads(src.read())
+
+    file_info = []
+
+    for record_type in enums.RecordTypes:
+        data = metadata["file_record_types"][record_type.name].copy()
+        del data["record_count"]
+        data["record_type"] = record_type
+        file_info.append(data_model.FileRecordIndex(**data))
+
+    return file_info
