@@ -35,7 +35,6 @@ def gather_stats(results):
     """
     Gather the results from all the stats tasks and
     combine into a single dict.
-    Des
     """
     data = {}
 
@@ -147,15 +146,19 @@ def convert_gsf_ping_beam(
     have been ingested.
     The processing node count was a kind of limiter on how many tasks to run in
     parallel.
+    If a ping is missing a beam, eg other pings have 400 then suddenly we have 399,
+    then we'll probably fail when we go to write the data by not having the correct
+    amount of data for the requested buffer.
+    No one seems to know why a beam would be missing. Even bad beams are still stored.
     """
-    node_counter = 0
-    tasks = []
+    node_counter: int = 0
+    tasks: List[Delayed] = []
     tasks_dict: Dict[int, List[Any]] = {n: [] for n in range(processing_node_limit)}
     files_dict: Dict[str, List[Any]] = {fname: [] for fname in files}
     cell_frequency_tasks = []
 
     vfs = tiledb.VFS(ctx=ctx)
-    config = ctx.config()
+    config: Dict[str, Any] = ctx.config()
 
     for enumi, pathname in enumerate(files):
         metadata_pathname = pathname.replace(".gsf", ".json")
