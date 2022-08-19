@@ -278,8 +278,8 @@ def filter_large_files(
 ) -> Tuple[List[str], List[str]]:
     """
     Filter out GSF's that are large than size_limit_mb so that they're processed locally.
-    Probably not neeeded anymore as we can stream the GSF files using tiledb's virtual file
-    system (VFS).
+    Probably not neeeded anymore as we can stream the GSF files using tiledb's virtual
+    file system (VFS).
     """
     manageable_files = []
     large_files = []
@@ -405,7 +405,9 @@ def write_gsf_info(gsf_uri: str, vfs: tiledb.vfs.VFS) -> None:
 
         # gather each file record type
         for frtype in finfo:
-            finfo_dict["file_record_types"][frtype.record_type.name] = attr.asdict(frtype)
+            finfo_dict["file_record_types"][frtype.record_type.name] = attr.asdict(
+                frtype
+            )
             finfo_dict["file_record_types"][frtype.record_type.name][
                 "record_type"
             ] = frtype.record_type.value
@@ -425,7 +427,9 @@ def write_gsf_info(gsf_uri: str, vfs: tiledb.vfs.VFS) -> None:
         src.write(json_data)
 
 
-def write_ping_beam_dims_dataframe(dataframe: pandas.DataFrame, array_uri: str, tiledb_config: Dict[str, Any]) -> None:
+def write_ping_beam_dims_dataframe(
+    dataframe: pandas.DataFrame, array_uri: str, tiledb_config: Dict[str, Any]
+) -> None:
     """
     Write the ping dataframe to a TileDB using a dense ping-beam dimensional
     axes.
@@ -437,8 +441,12 @@ def write_ping_beam_dims_dataframe(dataframe: pandas.DataFrame, array_uri: str, 
     ping_start_idx = int(dataframe.ping_number.min())
     ping_end_idx = int(dataframe.ping_number.max()) + 1
 
-    col_info = tiledb.dataframe_._get_column_infos(dataframe, None, None)
-    data_dict, _nanull = tiledb.dataframe_._df_to_np_arrays(dataframe, col_info, None)
+    col_info = tiledb.dataframe_._get_column_infos(  # pylint: disable=W0212
+        dataframe, None, None
+    )
+    data_dict, _nanull = tiledb.dataframe_._df_to_np_arrays(  # pylint: disable=W0212
+        dataframe, col_info, None
+    )
 
     with tiledb.open(array_uri, "w", ctx=ctx) as ds:
         ds[ping_start_idx:ping_end_idx, :] = data_dict
