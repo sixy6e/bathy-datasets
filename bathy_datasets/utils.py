@@ -461,6 +461,7 @@ def file_record_index(
 ) -> List[data_model.FileRecordIndex]:
     """
     Populate a list with the FileRecordIndex's for the associated GSF file.
+    Essentially read the sidecar json created via the write_gsf_info func.
     """
     with vfs.open(gsf_info_uri) as src:
         metadata = json.loads(src.read())
