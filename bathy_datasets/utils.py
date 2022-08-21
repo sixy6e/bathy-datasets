@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Tuple, Union
 
 from reap_gsf import reap, data_model, enums
 
+from bathy_datasets import storage
+
 
 def reduce_region_codes(region_codes: pandas.DataFrame) -> pandas.DataFrame:
     """
@@ -472,3 +474,29 @@ def file_record_index(
         file_info.append(data_model.FileRecordIndex(**data))
 
     return file_info
+
+
+def combine_tiledbs(array_uris: List[str], out_array_uri: str, ctx: tiledb.Ctx):
+    """
+    Given a list of TileDB array uri's, combine them into a singular TileDB array.
+    Designed for the case where we've ingested each GSF into separate arrays,
+    then each TileDB array into a singular TileDB array.
+    For example ingesting into ping/beam dense arrays into lon/lat sparse arrays.
+    No checks for attribute inconsistencies. Eg the large sparse expects a
+    particular attribute that the input doesn't have will raise an error.
+
+    Essentially, this is just a helper func, and should be treated with care
+    in this prototype phase.
+
+    As the TileDB API allows for multiple writers accessing the same array,
+    this could be split out very easily by creating a DAG with
+    tiledb.cloud.compute.Delayed.
+
+    The storage.append_ping_dataframe should also be uploaded as a UDF (with
+    some minor changes, eg the ctx argument).
+    """
+    for array_uri in array_uris:
+        with tiledb.open(array_uri, ctx=ctx) as ds:
+            df = ds.df[:]
+
+        storage.append_ping_dataframe(df, out_array_uri, ctx)
