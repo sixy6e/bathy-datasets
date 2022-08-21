@@ -262,7 +262,7 @@ def create_mbes_array(array_uri, schema, ctx=None):
         tiledb.Array.create(array_uri, schema)
 
 
-def append_ping_dataframe(dataframe, array_uri, ctx=None):
+def append_ping_dataframe(dataframe, array_uri, ctx=None, chunks=100000):
     """
     Append the ping dataframe read from a GSF file.
     Only to be used with sparse arrays.
@@ -273,4 +273,10 @@ def append_ping_dataframe(dataframe, array_uri, ctx=None):
         "ctx": ctx,
     }
 
-    tiledb.dataframe_.from_pandas(array_uri, dataframe, **kwargs)
+    idxs = [
+        (start, start + chunks) for start in numpy.arange(0, dataframe.shape[0], chunks)
+    ]
+
+    for idx in idxs:
+        subset = dataframe[idx[0] : idx[1]]
+        tiledb.dataframe_.from_pandas(array_uri, subset, **kwargs)
