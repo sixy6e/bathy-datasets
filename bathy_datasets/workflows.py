@@ -150,6 +150,23 @@ def convert_gsf_ping_beam(
     then we'll probably fail when we go to write the data by not having the correct
     amount of data for the requested buffer.
     No one seems to know why a beam would be missing. Even bad beams are still stored.
+
+    A similar variant of this function was to ingest directly into a singular
+    point cloud using the lon/lat as the array dimensions. The method has a
+    critical issue if something crashes. We've set the array to allow duplicates,
+    which is possible for this data, but if the task tree crashes (bad ping etc),
+    then you have to start from scratch. As some points will have been ingested.
+
+    Ideally, when we get to productionising this workflow, we ingest into a
+    ping/beam array (1 GSF -> 1 TileDB), then take all the TileDB array and merge
+    into a singluar point cloud. Provides provenance, cleaner workflow, and
+    the ingestion into a singular point cloud will be faster as reading from
+    the ping/beam TileDB array will be faster than from the GSF.
+
+    This might form sub-product qualifiers eg:
+        * L2A (GSF)
+        * L2B (ping/beam tiledb)
+        * L2C (lon/lat tiledb)
     """
     node_counter: int = 0
     tasks: List[Delayed] = []
