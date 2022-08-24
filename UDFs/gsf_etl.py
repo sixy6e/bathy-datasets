@@ -1736,6 +1736,8 @@ def retrieve_stream(uri, access_key, skey):
     Not testing the creation of the stream object at this point.
     But for testing, we also need to keep the download to occur only
     once.
+
+    *** No longer required. the tiledb.VFS class is all we need now. ***
     """
     session = boto3.Session(aws_access_key_id=access_key, aws_secret_access_key=skey)
     dev_resource = session.resource("s3")
@@ -1759,6 +1761,8 @@ def decode_gsf(args, idx=None):
 def write_gsf_info(gsf_uri, access_key, skey):
     """
     Write the GSF file info (record types and counts) as a JSON document.
+
+    *** The IO can be replaced with tiledb.VFS class. ***
     """
     stream, stream_length = retrieve_stream(gsf_uri, access_key, skey)
     finfo = file_info(stream, stream_length)
