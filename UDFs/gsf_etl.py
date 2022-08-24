@@ -130,6 +130,7 @@ class BeamSubRecordTypes(Enum):
 class SensorSpecific(Enum):
     EM2040 = 149
 
+
 ############################## data_model.py ##############################
 
 import datetime  # type: ignore
@@ -138,6 +139,7 @@ from typing import List, Union
 import attr
 import numpy
 import pandas  # type: ignore
+import tiledb
 
 # from .enums import RecordTypes
 
@@ -382,7 +384,9 @@ class SwathBathymetryPing:
         # ping_dataframe[slices[0]] = df
         cols = [col for col in ping_dataframe.columns if col in df.columns]
         for col in cols:
-            ping_dataframe.loc[slices[0].start : slices[0].stop - 1, col] = df[col].values
+            ping_dataframe.loc[slices[0].start : slices[0].stop - 1, col] = df[
+                col
+            ].values
             # ping_dataframe.loc[slices[0].start:slices[0].stop-1, col] = df[col]
 
         for i, rec_id in enumerate(record_ids[1:]):
@@ -594,7 +598,9 @@ def create_datetime(seconds: int, nano_seconds: int) -> datetime.datetime:
     return timestamp
 
 
-def record_padding(stream: Union[io.BufferedReader, io.BytesIO]) -> numpy.ndarray:
+def record_padding(
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO]
+) -> numpy.ndarray:
     """
     GSF requires that all records are multiples of 4 bytes.
     Essentially reads enough bytes so the stream position for the
@@ -605,7 +611,8 @@ def record_padding(stream: Union[io.BufferedReader, io.BytesIO]) -> numpy.ndarra
 
 
 def file_info(
-    stream: Union[io.BufferedReader, io.BytesIO], file_size: Optional[int] = None
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    file_size: Optional[int] = None,
 ) -> List[FileRecordIndex]:
     """
     Returns a list of FileRecordIndex objects for each high level record
@@ -614,8 +621,11 @@ def file_info(
     """
     # we could be dealing with a gsf stored within a zipfile, or as a cloud object
     if file_size is None:
-        fname = Path(stream.name)
-        fsize = fname.stat().st_size
+        if isinstance(stream, tiledb.vfs.FileIO):
+            fsize = stream._nbytes
+        else:
+            fname = Path(stream.name)
+            fsize = fname.stat().st_size
     else:
         fsize = file_size
 
@@ -657,7 +667,7 @@ def file_info(
 
 
 def read_record_info(
-    stream: Union[io.BufferedReader, io.BytesIO]
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO]
 ) -> Tuple[int, int, bool]:
     """Return the header information for the current record."""
     blob = stream.read(8)
@@ -669,7 +679,9 @@ def read_record_info(
 
 
 def read_header(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, checksum_flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    checksum_flag: bool,
 ) -> str:
     """Read the GSF header occuring at the start of the file."""
     blob = stream.read(data_size)
@@ -727,7 +739,9 @@ def _standardise_proc_param_keys(key: str) -> str:
 
 
 def read_processing_parameters(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, checksum_flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    checksum_flag: bool,
 ) -> Dict[str, Any]:
     """
     Read the record containing the parameters used during the data
@@ -781,7 +795,9 @@ def read_processing_parameters(
 
 
 def read_attitude(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, checksum_flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    checksum_flag: bool,
 ) -> pandas.DataFrame:
     """Read an attitude record."""
     blob = stream.read(data_size)
@@ -842,7 +858,9 @@ def read_attitude(
 
 
 def read_svp(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    flag: bool,
 ) -> pandas.DataFrame:
     """
     Read a sound velocity profile record.
@@ -878,7 +896,9 @@ def read_svp(
         "latitude": blob["lat"][0] / 10_000_000,
         "depth": svp[:, 0],
         "sound_velocity": svp[:, 1],
-        "observation_time": create_datetime(blob["obs_seconds"][0], blob["obs_nano"][0]),
+        "observation_time": create_datetime(
+            blob["obs_seconds"][0], blob["obs_nano"][0]
+        ),
         "applied_time": create_datetime(blob["app_seconds"][0], blob["app_nano"][0]),
     }
 
@@ -907,7 +927,9 @@ def read_svp(
 
 
 def read_swath_bathymetry_summary(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    flag: bool,
 ) -> SwathBathymetrySummary:
     buffer = stream.read(data_size)
 
@@ -952,7 +974,9 @@ def read_swath_bathymetry_summary(
 
 
 def read_comment(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    flag: bool,
 ) -> Comment:
     """Read a comment record."""
     dtype = numpy.dtype(
@@ -1265,7 +1289,9 @@ def read_bathymetry_ping(
 
 
 def read_history(
-    stream: Union[io.BufferedReader, io.BytesIO], data_size: int, flag: bool
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    data_size: int,
+    flag: bool,
 ):
     """Read a history record."""
     blob = stream.read(data_size)
@@ -1308,7 +1334,8 @@ def read_history(
 
 
 def dependent_pings(
-    stream: Union[io.BufferedReader, io.BytesIO], file_record: FileRecordIndex
+    stream: Union[io.BufferedReader, io.BytesIO, tiledb.vfs.FileIO],
+    file_record: FileRecordIndex,
 ) -> List[Tuple[bool, int]]:
     """
     Generate a list of tuple's indicating whether a SwathBathymetryPing record
@@ -1378,7 +1405,9 @@ class Ellipsoid:
         e = numpy.sqrt(1 - (b / a) ** 2)
         f = (a - b) / a
         inv_f = 1 / f
-        k = numpy.sqrt(0.5 * (1 - (1 - e**2) / (2 * e) * numpy.log((1 - e) / (1 + e))))
+        k = numpy.sqrt(
+            0.5 * (1 - (1 - e**2) / (2 * e) * numpy.log((1 - e) / (1 + e)))
+        )
         ra = a * k
 
         return cls(a, b, e, f, inv_f, ra)
@@ -1813,7 +1842,7 @@ def append_ping_dataframe(dataframe, array_uri, access_key, skey, chunks=100000)
     ]
 
     for idx in idxs:
-        subset = dataframe[idx[0]:idx[1]]
+        subset = dataframe[idx[0] : idx[1]]
         tiledb.dataframe_.from_pandas(array_uri, subset, **kwargs)
 
 
@@ -1883,14 +1912,24 @@ def ingest_gsf_slice(
 
     # write to tiledb array
     if ping_beam_dims:
-        write_ping_beam_dims_dataframe(swath_pings.ping_dataframe, array_uri, access_key, skey)
+        write_ping_beam_dims_dataframe(
+            swath_pings.ping_dataframe, array_uri, access_key, skey
+        )
     else:
         append_ping_dataframe(swath_pings.ping_dataframe, array_uri, access_key, skey)
 
     return cell_count, start_end_time
 
 
-def ingest_gsf_slices(gsf_uri, access_key, skey, array_uri, slices, cell_frequency=False, ping_beam_dims=False):
+def ingest_gsf_slices(
+    gsf_uri,
+    access_key,
+    skey,
+    array_uri,
+    slices,
+    cell_frequency=False,
+    ping_beam_dims=False,
+):
     """
     Ingest a list of ping slices from a given GSF file.
     """
@@ -1903,7 +1942,14 @@ def ingest_gsf_slices(gsf_uri, access_key, skey, array_uri, slices, cell_frequen
 
     for idx in slices:
         count, start_end_time = ingest_gsf_slice(
-            ping_file_record, stream, access_key, skey, array_uri, idx, cell_frequency, ping_beam_dims
+            ping_file_record,
+            stream,
+            access_key,
+            skey,
+            array_uri,
+            idx,
+            cell_frequency,
+            ping_beam_dims,
         )
         cell_counts.append(count)
         start_end_timestamps.append(start_end_time)
@@ -1942,7 +1988,9 @@ token = ""
 
 tiledb.cloud.login(token=token)
 
-tiledb.cloud.udf.register_generic_udf(decode_gsf, name="decode_gsf", namespace="AusSeabed")
+tiledb.cloud.udf.register_generic_udf(
+    decode_gsf, name="decode_gsf", namespace="AusSeabed"
+)
 tiledb.cloud.udf.register_generic_udf(
     retrieve_stream, name="retrieve_stream", namespace="AusSeabed"
 )
