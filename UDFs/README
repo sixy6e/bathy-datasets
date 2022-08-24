@@ -1,0 +1,24 @@
+Prototype User Defined Functions (UDFs) specifically for the ARDC-PL019 GMRT project.
+
+The gsf_etl.py contains several entire modules. It was easier to bundle them together
+into a singlular file and build several UDFs rather than trying to deploy a module to
+a cloud environment that we don't control.
+Conceptually, these USFs could be built from simple scripts that append the content to
+a single file.
+
+The benefit of the UDFs is that we don't need to mess around with deployment of the
+full stack of software requirements. And then defining a scalable computational environment.
+The UDFs are stored internally as TileDB arrays, and registered with TileDB-Cloud.
+Another benefit is that these UDFs can be shared with others (people, groups, orgs etc)
+and they don't have to worry about the deployment either. The just need to execute them
+as any normal function (still required to have a TileDB-Cloud account), and TileDB-Cloud
+spins up a resource, executes the func, and returns the result to a user.
+The base idea here, is that AusSeabed can share these UDFs with other members, who can
+execute them without having to deploy the code nor the scalable computational architecture.
+Meaning, we all collaborate more effectively, share the code and compute more easily.
+
+Essentially, we get to the business requirements more effectively, and work on the real problems and
+leave the scalable computational architecture to the professionals. No reason these
+days for orgs that are collaborating (or attempting to, whilst still competing for the
+small bucket of resources), to then each design and build independently full stack
+scalable compute that would need an ever ongoing support and maintenance.
