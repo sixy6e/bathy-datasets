@@ -184,9 +184,7 @@ def convert_gsf_ping_beam(
         with vfs.open(metadata_pathname) as src:
             gsf_metadata = json.loads(src.read())
 
-        ping_count = gsf_metadata["file_record_types"]["GSF_SWATH_BATHYMETRY_PING"][
-            "record_count"
-        ]
+        ping_count = gsf_metadata["record_count"]["GSF_SWATH_BATHYMETRY_PING"]
 
         # ideally filter the empty GSFs prior, but still good to check
         if not ping_count:
